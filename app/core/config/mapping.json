@@ -1,0 +1,69 @@
+{
+  "Patient": {
+    "table_name": "patient.parquet",
+    "columns": {
+      "PATID": "id",
+      "PATSEX": "gender",
+      "PATBD": "birthDate",
+      "NOM": "name[0].family",
+      "PRENOM": "name[0].given[0]",
+      "VILLE": "address[0].city"
+    }
+  },
+  "Encounter": {
+    "table_name": "mvt.parquet",
+    "columns": {
+      "EVTID": "id",
+      "PATID": "subject.reference",
+      "ELTID": "id",
+      "DATENT": "period.start",
+      "SEJUM": "location[0].physicalType.text",
+      "SEJUF": "serviceProvider.display"
+    }
+  },
+  "Observation": {
+    "table_name": "biol.parquet",
+    "columns": {
+      "ELTID": "id",
+      "PATID": "subject.reference",
+      "EVTID": "encounter.reference",
+      "PRLVTDATE": "effectiveDateTime",
+      "PNAME": "code.text",
+      "RESULT": "valueQuantity.value",
+      "UNIT": "valueQuantity.unit"
+    }
+  },
+  "MedicationRequest": {
+    "table_name": "pharma.parquet",
+    "columns": {
+      "ELTID": "id",
+      "PATID": "subject.reference",
+      "EVTID": "encounter.reference",
+      "ALLSPELABEL": "medicationCodeableConcept.text",
+      "DATPRES": "authoredOn",
+      "PRES": "dosageInstruction[0].text"
+    }
+  },
+  "Condition": {
+    "table_name": "pmsi.parquet",
+    "columns": {
+      "ELTID": "id",
+      "PATID": "subject.reference",
+      "EVTID": "encounter.reference",
+      "TYPE": "resourceType",
+      "CODE": "code.coding[0].code",
+      "LIBELLE": "code.text",
+      "DATENT": "recordedDate"
+    }
+  },
+  "DiagnosticReport": {
+    "table_name": "doceds.parquet",
+    "columns": {
+      "ELTID": "id",
+      "PATID": "subject.reference",
+      "EVTID": "encounter.reference",
+      "RECTXT": "presentedForm[0].data",
+      "RECDATE": "effectiveDateTime"
+    }
+  }
+}
