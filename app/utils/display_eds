@@ -24,7 +24,7 @@ def display_tables():
         return
 
     # Liste des tables critiques à inspecter
-    tables = ["patient.parquet", "mvt.parquet", "biol.parquet", "pharma.parquet", "pmsi.parquet"]
+    tables = ["patient.parquet", "mvt.parquet", "biol.parquet", "pharma.parquet", "pmsi.parquet", "doceds.parquet"]
 
     for table in tables:
         file_path = os.path.join(EDS_DIR, table)
