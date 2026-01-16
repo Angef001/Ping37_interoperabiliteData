@@ -1,0 +1,18 @@
+# --- Serveur API et Web ---
+fastapi==0.109.0        # Le framework pour créer l'API
+uvicorn==0.27.0          # Le serveur qui permet de lancer FastAPI
+python-multipart==0.0.6  # Pour permettre l'envoi de fichiers JSON via l'API
+
+# --- Manipulation de données (EDS) ---
+polars==0.20.5           # Pour transformer les données FHIR en tables
+pyarrow==15.0.0          # Nécessaire pour que Polars puisse écrire des fichiers .parquet
+
+# --- Validation et Modèles ---
+pydantic==2.5.3          # Pour les modèles (eds_models.py et fhir_models.py)
+pydantic-settings==2.1.0 # Pour gérer la configuration du projet
+
+# --- Utilitaires ---
+python-dateutil==2.8.2   # Pour manipuler les dates FHIR parfois complexes
+requests==2.31.0         # Pour contacter un serveur FHIR externe
+
+fhir.resources==7.1.0
