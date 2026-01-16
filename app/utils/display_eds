@@ -1,13 +1,14 @@
 import polars as pl
 import os
+from pathlib import Path
 
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
 # Calcul du chemin racine du projet pour localiser le dossier de données
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_DIR)))
-EDS_DIR = os.path.join(PROJECT_ROOT, "Ping37_interoperabiliteData/eds")
+CURRENT_DIR = Path(__file__).resolve().parent      # .../app/utils
+PROJECT_ROOT = CURRENT_DIR.parents[1]              # .../Ping37_interoperabiliteData
+EDS_DIR = PROJECT_ROOT / "eds"
 
 def display_tables():
     """
@@ -23,7 +24,7 @@ def display_tables():
         return
 
     # Liste des tables critiques à inspecter
-    tables = ["patient.parquet", "mvt.parquet", "biol.parquet", "pharma.parquet", "pmsi.parquet"]
+    tables = ["patient.parquet", "mvt.parquet", "biol.parquet", "pharma.parquet", "pmsi.parquet", "doceds.parquet"]
 
     for table in tables:
         file_path = os.path.join(EDS_DIR, table)
