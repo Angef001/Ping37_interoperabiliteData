@@ -7,7 +7,7 @@ import os
 # Calcul du chemin racine du projet pour localiser le dossier de données
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_DIR)))
-EDS_DIR = os.path.join(PROJECT_ROOT, "eds")
+EDS_DIR = os.path.join(PROJECT_ROOT, "Ping37_interoperabiliteData/eds")
 
 def display_tables():
     """
