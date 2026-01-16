@@ -3,67 +3,176 @@
     "table_name": "patient.parquet",
     "columns": {
       "PATID": "id",
-      "PATSEX": "gender",
       "PATBD": "birthDate",
-      "NOM": "name[0].family",
-      "PRENOM": "name[0].given[0]",
-      "VILLE": "address[0].city"
+      "PATSEX": "gender",
+      "PATAGE": ""
     }
   },
+
   "Encounter": {
     "table_name": "mvt.parquet",
     "columns": {
-      "EVTID": "id",
       "PATID": "subject.reference",
-      "ELTID": "id",
+      "EVTID": "id",
+      "ELTID": "location[0].location.reference",
       "DATENT": "period.start",
-      "SEJUM": "location[0].physicalType.text",
-      "SEJUF": "serviceProvider.display"
+      "DATSORT": "period.end",
+      "SEJUM": "serviceProvider.display",
+      "SEJUF": "location[0].location.display",
+      "PATSEX": "",
+      "PATAGE": ""
     }
   },
+
   "Observation": {
     "table_name": "biol.parquet",
     "columns": {
-      "ELTID": "id",
       "PATID": "subject.reference",
       "EVTID": "encounter.reference",
+      "ELTID": "identifier[0].value",
       "PRLVTDATE": "effectiveDateTime",
       "PNAME": "code.text",
+      "ANAME": "code.text",
+      "RNAME": "code.coding[0].display",
+      "LOINC": "code.coding[0].code",
       "RESULT": "valueQuantity.value",
-      "UNIT": "valueQuantity.unit"
+      "UNIT": "valueQuantity.unit",
+      "MINREF": "referenceRange[0].low.value",
+      "MAXREF": "referenceRange[0].high.value",
+      "VALIDADATE": "issued",
+      "SEJUM": "",
+      "SEJUF": "",
+      "PATSEX": "",
+      "PATAGE": ""
     }
   },
+
   "MedicationRequest": {
     "table_name": "pharma.parquet",
     "columns": {
-      "ELTID": "id",
       "PATID": "subject.reference",
       "EVTID": "encounter.reference",
-      "ALLSPELABEL": "medicationCodeableConcept.text",
+      "ELTID": "id",
       "DATPRES": "authoredOn",
-      "PRES": "dosageInstruction[0].text"
+      "PRES": "dosageInstruction[0].text",
+      "ALLSPELABEL": "medicationCodeableConcept.text",
+      "ALLUCD13": "medicationCodeableConcept.coding[0].code",
+      "UFPRO": "performer.display",
+      "CAT": "",
+      "SRC": "recorder.display",
+      "DATENT": "",
+      "DATSORT": "",
+      "SEJUM": "",
+      "SEJUF": "",
+      "PATBD": "",
+      "PATSEX": "",
+      "PATAGE": ""
     }
   },
-  "Condition": {
-    "table_name": "pmsi.parquet",
-    "columns": {
-      "ELTID": "id",
-      "PATID": "subject.reference",
-      "EVTID": "encounter.reference",
-      "TYPE": "resourceType",
-      "CODE": "code.coding[0].code",
-      "LIBELLE": "code.text",
-      "DATENT": "recordedDate"
-    }
-  },
+
   "DiagnosticReport": {
     "table_name": "doceds.parquet",
     "columns": {
-      "ELTID": "id",
       "PATID": "subject.reference",
       "EVTID": "encounter.reference",
+      "ELTID": "id",
       "RECTXT": "presentedForm[0].data",
-      "RECDATE": "effectiveDateTime"
+      "RECFAMTXT": "conclusion",
+      "RECDATE": "effectiveDateTime",
+      "RECTYPE": "code.text",
+      "SEJUM": "performer[0].display",
+      "SEJUF": "",
+      "PATBD": "",
+      "PATSEX": "",
+      "PATAGE": ""
+    }
+  },
+
+  "DocumentReference": {
+    "table_name": "doceds.parquet",
+    "columns": {
+      "PATID": "subject.reference",
+      "EVTID": "context.encounter.reference",
+      "ELTID": "id",
+      "RECTYPE": "type.text",
+      "RECDATE": "content[0].attachment.creation",
+      "RECTXT": "content[0].attachment.data",
+      "RECFAMTXT": "",
+      "SEJUM": "facilityType.text",
+      "SEJUF": "",
+      "PATBD": "",
+      "PATSEX": "",
+      "PATAGE": ""
+    }
+  },
+
+  "Composition": {
+    "table_name": "doceds.parquet",
+    "columns": {
+      "PATID": "subject.reference",
+      "EVTID": "encounter.reference",
+      "ELTID": "id",
+      "RECTYPE": "type.text",
+      "RECDATE": "date",
+      "RECTXT": "text.div",
+      "RECFAMTXT": "section[0].text.div",
+      "SEJUM": "",
+      "SEJUF": "",
+      "PATBD": "",
+      "PATSEX": "",
+      "PATAGE": ""
+    }
+  },
+
+  "Condition": {
+    "table_name": "pmsi.parquet",
+    "columns": {
+      "PATID": "subject.reference",
+      "EVTID": "encounter.reference",
+      "ELTID": "id",
+      "DALL": "code.text",
+      "SEVERITE": "severity.text",
+      "CODEACTES": "",
+      "ACTES": "",
+      "DATENT": "recordedDate",
+      "DATSORT": "",
+      "SEJDUR": "",
+      "MODEENT": "",
+      "MODESORT": "",
+      "PMSISTATUT": "",
+      "GHM": "",
+      "SEJUM": "",
+      "SEJUF": "",
+      "PATBD": "",
+      "PATSEX": "",
+      "PATAGE": "",
+      "SRC": ""
+    }
+  },
+
+  "Procedure": {
+    "table_name": "pmsi.parquet",
+    "columns": {
+      "PATID": "subject.reference",
+      "EVTID": "encounter.reference",
+      "ELTID": "id",
+      "CODEACTES": "code.coding[0].code",
+      "ACTES": "code.text",
+      "DALL": "",
+      "SEVERITE": "",
+      "DATENT": "",
+      "DATSORT": "",
+      "SEJDUR": "",
+      "MODEENT": "",
+      "MODESORT": "",
+      "PMSISTATUT": "",
+      "GHM": "",
+      "SEJUM": "",
+      "SEJUF": "",
+      "PATBD": "",
+      "PATSEX": "",
+      "PATAGE": "",
+      "SRC": ""
     }
   }
 }
