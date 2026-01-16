@@ -3,7 +3,7 @@ from datetime import date, datetime
 from typing import Optional
 
 # --- BASE COMMUNE (Champs présents dans presque tous les modules) ---
-class EDSBaseModel(BaseModel):
+class PatientModel(BaseModel):
     PATID: str = Field(..., description="Identifiant unique du patient")
     EVTID: str = Field(..., description="Identifiant unique du séjour (Encounter)")
     ELTID: str = Field(..., description="Identifiant unique de l'élément (ligne)")
@@ -11,7 +11,7 @@ class EDSBaseModel(BaseModel):
     PATAGE: Optional[int] = Field(None, description="Âge au moment de l'événement")
 
 # --- MODULE DOCEDS (Documents) ---
-class DocEdsModel(EDSBaseModel):
+class DocEdsModel(PatientModel):
     RECTXT: str = Field(..., description="Texte intégral du document")
     RECFAMTXT: Optional[str] = None
     RECDATE: datetime = Field(..., description="Date du document")
@@ -20,7 +20,7 @@ class DocEdsModel(EDSBaseModel):
     SEJUF: Optional[str] = None
 
 # --- MODULE PMSI (Diagnostics et Actes) ---
-class PmsiModel(EDSBaseModel):
+class PmsiModel(PatientModel):
     DALL: Optional[str] = Field(None, description="Diagnostics (CIM-10)")
     DATENT: datetime = Field(..., description="Date d'entrée / début")
     DATSORT: Optional[datetime] = None
@@ -34,7 +34,7 @@ class PmsiModel(EDSBaseModel):
     SEVERITE: Optional[str] = None
 
 # --- MODULE PHARMA (Médicaments) ---
-class PharmaModel(EDSBaseModel):
+class PharmaModel(PatientModel):
     DATPRES: datetime = Field(..., description="Date de prescription")
     ALLSPELABEL: str = Field(..., description="Libellé du médicament (DC ou spécialité)")
     ALLSPECODE: Optional[str] = None # Code ATC ou CIS
@@ -42,7 +42,7 @@ class PharmaModel(EDSBaseModel):
     SEJUM: Optional[str] = None
 
 # --- MODULE BIOL (Biologie) ---
-class BiolModel(EDSBaseModel):
+class BiolModel(PatientModel):
     PRLVTDATE: datetime = Field(..., description="Date et heure du prélèvement")
     PNAME: str = Field(..., description="Nom de l'examen (ex: Glycémie)")
     ANAME: Optional[str] = None # Analyse détaillée
@@ -56,7 +56,7 @@ class BiolModel(EDSBaseModel):
 
 # --- MODULE MVT (Mouvements / Séjours) ---
 # Souvent utilisé pour centraliser les périodes d'hospitalisation
-class MvtModel(EDSBaseModel):
+class MvtModel(PatientModel):
     DATENT: datetime
     DATSORT: Optional[datetime] = None
     SEJUM: str
