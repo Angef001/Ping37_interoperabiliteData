@@ -7,13 +7,44 @@ from datetime import datetime
 # =============================================================================
 # CONFIGURATION DES CHEMINS
 # =============================================================================
-# Définition dynamique des chemins pour garantir la portabilité du script
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_DIR)))
 
 MAPPING_FILE = os.path.join(PROJECT_ROOT, "app", "core", "config", "mapping.json")
 FHIR_DIR = os.path.join(PROJECT_ROOT, "synthea", "output", "fhir")
 EDS_DIR = os.path.join(PROJECT_ROOT, "eds")
+
+# =============================================================================
+# COLONNES EDSaN ATTENDUES PAR MODULE (d'après tes captures)
+# =============================================================================
+EDSAN_COLUMNS = {
+    "patient.parquet": [
+        "PATID", "PATBD", "PATAGE", "PATSEX"
+    ],
+    "mvt.parquet": [
+        "PATAGE", "PATSEX", "DATENT", "DATSORT", "SEJUF", "SEJUM", "PATID", "EVTID", "ELTID"
+    ],
+    "biol.parquet": [
+        "PRLVTDATE", "SEJUM", "SEJUF", "PNAME", "ANAME", "RNAME", "LOINC",
+        "RESULT", "UNIT", "MINREF", "MAXREF", "VALIDADATE",
+        "PATAGE", "PATSEX", "PATID", "EVTID", "ELTID"
+    ],
+    "pharma.parquet": [
+        "PRES", "ALLSPELABEL", "ALLUCD13", "DATENT", "DATSORT", "DATPRES", "CAT",
+        "SEJUM", "SEJUF", "UFPRO", "PATBD", "PATAGE", "PATSEX", "SRC",
+        "PATID", "EVTID", "ELTID"
+    ],
+    "doceds.parquet": [
+        "RECTXT", "RECFAMTXT", "RECDATE", "RECTYPE", "SEJUM", "SEJUF",
+        "PATBD", "PATAGE", "PATSEX", "PATID", "EVTID", "ELTID"
+    ],
+    "pmsi.parquet": [
+        "DALL", "DATENT", "DATSORT", "SEJDUR", "SEJUM", "SEJUF",
+        "PATBD", "PATAGE", "PATSEX", "CODEACTES", "ACTES",
+        "MODEENT", "MODESORT", "PMSISTATUT", "GHM", "SEVERITE", "SRC",
+        "PATID", "EVTID", "ELTID"
+    ]
+}
 
 # =============================================================================
 # FONCTIONS UTILITAIRES
@@ -27,13 +58,12 @@ def compute_age(birthdate_str):
     if not birthdate_str:
         return None
     try:
-        # On ne garde que les 10 premiers caractères pour ignorer l'heure si présente
         bd = datetime.strptime(str(birthdate_str)[:10], "%Y-%m-%d")
         today = datetime.now()
-        # Calcul précis prenant en compte le mois et le jour actuel
         return today.year - bd.year - ((today.month, today.day) < (bd.month, bd.day))
     except:
         return None
+
 
 def get_value_from_path(data: dict, path: str):
     """
@@ -41,38 +71,54 @@ def get_value_from_path(data: dict, path: str):
     Supporte la notation par points (.) et les index de listes (ex: [0]).
     Nettoie automatiquement les préfixes techniques FHIR (urn:uuid:, Patient/, etc).
     """
-    if not path or data is None: 
+    if not path or data is None:
         return None
-    
-    # Cas particulier : le type de ressource est souvent à la racine du JSON
+
     if path == "resourceType":
         return data.get("resourceType")
 
-    # Transformation du chemin "address[0].city" en liste ["address", "0", "city"]
     elements = path.replace("[", ".").replace("]", "").split(".")
     current = data
-    
+
     for key in elements:
-        if current is None: return None
-        
-        # Gestion des index de listes
-        if key.isdigit(): 
+        if current is None:
+            return None
+
+        if key.isdigit():
             idx = int(key)
             if isinstance(current, list) and len(current) > idx:
                 current = current[idx]
             else:
                 return None
-        # Gestion des clés de dictionnaires
-        elif isinstance(current, dict) and key in current: 
+        elif isinstance(current, dict) and key in current:
             current = current[key]
         else:
             return None
-            
-    # Nettoyage des identifiants (suppression des préfixes standards FHIR)
+
     if isinstance(current, str):
-        for prefix in ["urn:uuid:", "Patient/", "Encounter/", "Practitioner/"]:
+        for prefix in ["urn:uuid:", "Patient/", "Encounter/", "Practitioner/", "Location/"]:
             current = current.replace(prefix, "")
+
     return current
+
+
+def enforce_schema(df: pl.DataFrame, table_name: str) -> pl.DataFrame:
+    """
+    Force un DataFrame à ne contenir QUE les colonnes attendues pour le module EDSaN.
+    - Ajoute les colonnes manquantes en null
+    - Supprime les colonnes en trop
+    """
+    expected = EDSAN_COLUMNS.get(table_name)
+    if not expected:
+        return df
+
+    missing = [c for c in expected if c not in df.columns]
+    if missing:
+        df = df.with_columns([pl.lit(None).alias(c) for c in missing])
+
+    df = df.select([c for c in expected if c in df.columns])
+    return df
+
 
 # =============================================================================
 # FONCTION PRINCIPALE
@@ -80,30 +126,25 @@ def get_value_from_path(data: dict, path: str):
 
 def build_eds():
     print("Démarrage de la construction de l'EDS...")
-    
-    # Vérification de la présence du fichier de configuration
+
     if not os.path.exists(MAPPING_FILE):
         print(f"[ERREUR] Fichier de mapping introuvable : {MAPPING_FILE}")
         return
 
-    # Chargement des règles de correspondance
-    with open(MAPPING_FILE, 'r', encoding='utf-8') as f:
+    with open(MAPPING_FILE, "r", encoding="utf-8") as f:
         mapping_rules = json.load(f)
 
-    # Initialisation des tampons (buffers)
-    # On utilise un dictionnaire de listes pour stocker les données en mémoire
-    # avant de les convertir en DataFrame Polars.
     buffers = {rule["table_name"]: [] for rule in mapping_rules.values()}
-    
-    # Récupération de la liste des fichiers JSON générés
+
     fhir_files = glob.glob(os.path.join(FHIR_DIR, "*.json"))
     print(f"Traitement de {len(fhir_files)} fichiers source...")
-    
-    # Création du dossier de sortie s'il n'existe pas
+
     os.makedirs(EDS_DIR, exist_ok=True)
     count = 0
 
-    # Boucle de lecture et d'extraction
+    # ----------------------------
+    # 1) Extraction depuis les Bundles FHIR
+    # ----------------------------
     for file_path in fhir_files:
         try:
             with open(file_path, "r", encoding="utf-8") as f:
@@ -111,59 +152,112 @@ def build_eds():
         except Exception as e:
             print(f"[ATTENTION] Erreur de lecture sur le fichier {file_path}: {e}")
             continue
-        
-        if "entry" not in bundle: continue
+
+        if "entry" not in bundle:
+            continue
 
         for entry in bundle["entry"]:
             resource = entry.get("resource", {})
             rtype = resource.get("resourceType")
 
-            # Si le type de ressource est défini dans le mapping, on l'extrait
             if rtype in mapping_rules:
                 rule = mapping_rules[rtype]
                 target_table = rule["table_name"]
                 columns_map = rule["columns"]
-                
+
                 new_row = {}
-                # Extraction dynamique des champs selon le mapping
                 for col_name, json_path in columns_map.items():
                     new_row[col_name] = get_value_from_path(resource, json_path)
-                
+
                 buffers[target_table].append(new_row)
-        
+
         count += 1
-        if count % 10 == 0: 
+        if count % 10 == 0:
             print(f"   ... {count} fichiers traités")
 
-    # Post-traitement et sauvegarde
+    # ----------------------------
+    # 2) Construction des DF + règles métiers
+    # ----------------------------
     print("Sauvegarde des fichiers Parquet et application des règles métiers...")
-    
+
+    dfs = {}
+    df_patient = None
+    df_mvt = None
+
     for table_name, data_rows in buffers.items():
         if not data_rows:
             print(f"[INFO] La table {table_name} est vide, aucun fichier généré.")
             continue
 
-        df = pl.DataFrame(data_rows)
+        all_cols = set()
+        for r in data_rows:
+            all_cols.update(r.keys())
 
-        # Règle métier 1 : Calcul de l'âge
-        # Si la table contient une date de naissance (PATBD), on génère la colonne PATAGE
+        schema = {c: pl.Utf8 for c in all_cols}
+        df = pl.DataFrame(data_rows, schema=schema)
+
+        # Valeur par défaut pour SEJUM
+        if table_name == "mvt.parquet" and "SEJUM" in df.columns:
+            df = df.with_columns(pl.col("SEJUM").fill_null("Service Général"))
+
+        # Calcul PATAGE uniquement dans patient.parquet (puis copié)
         if table_name == "patient.parquet" and "PATBD" in df.columns:
             df = df.with_columns(
                 pl.col("PATBD").map_elements(compute_age, return_dtype=pl.Int64).alias("PATAGE")
             )
             print(f"   - Colonne PATAGE calculée pour {table_name}")
 
-        # Règle métier 2 : Valeurs par défaut
-        # Si le service hospitalier (SEJUM) est manquant, on applique une valeur par défaut
-        if table_name == "mvt.parquet" and "SEJUM" in df.columns:
-             df = df.with_columns(pl.col("SEJUM").fill_null("Service Général"))
+        dfs[table_name] = df
 
-        # Écriture sur le disque au format Parquet
+    # ----------------------------
+    # 3) Référentiels Patient + MVT
+    # ----------------------------
+    if "patient.parquet" in dfs:
+        df_patient = dfs["patient.parquet"].select(
+            [c for c in ["PATID", "PATBD", "PATSEX", "PATAGE"] if c in dfs["patient.parquet"].columns]
+        )
+
+    if "mvt.parquet" in dfs:
+        df_mvt = dfs["mvt.parquet"].select(
+            [c for c in ["EVTID", "PATID", "DATENT", "DATSORT", "SEJUM", "SEJUF"] if c in dfs["mvt.parquet"].columns]
+        )
+
+    # ----------------------------
+    # 4) Enrichir + filtrer colonnes EDSaN + sauvegarder
+    # ----------------------------
+    for table_name, df in dfs.items():
+
+        # Join patient -> copie PATBD/PATSEX/PATAGE si la table les attend
+        if df_patient is not None and "PATID" in df.columns and table_name != "patient.parquet":
+            df = df.join(df_patient, on="PATID", how="left", suffix="_pat")
+
+            for col in ["PATBD", "PATSEX", "PATAGE"]:
+                if col in df.columns and f"{col}_pat" in df.columns:
+                    df = df.with_columns(pl.col(col).fill_null(pl.col(f"{col}_pat")).alias(col))
+
+            df = df.drop([c for c in df.columns if c.endswith("_pat")])
+
+        # Join mvt -> copie infos séjour si attendu
+        if df_mvt is not None and "EVTID" in df.columns and table_name not in ["patient.parquet", "mvt.parquet"]:
+            df = df.join(df_mvt, on="EVTID", how="left", suffix="_mvt")
+
+            for col in ["DATENT", "DATSORT", "SEJUM", "SEJUF"]:
+                if col in df.columns and f"{col}_mvt" in df.columns:
+                    df = df.with_columns(pl.col(col).fill_null(pl.col(f"{col}_mvt")).alias(col))
+
+            df = df.drop([c for c in df.columns if c.endswith("_mvt")])
+
+        # Garder UNIQUEMENT les colonnes attendues par module
+        df = enforce_schema(df, table_name)
+
+        # Sauvegarde parquet
         output_path = os.path.join(EDS_DIR, table_name)
         df.write_parquet(output_path)
         print(f"[SUCCES] {table_name} généré ({len(df)} lignes)")
 
     print("Construction terminée.")
+
+    
 
 if __name__ == "__main__":
     build_eds()
