@@ -1,5 +1,5 @@
 env/
-eds/
+#eds/
 synthea/
 __pycache__/
 #*.parquet
