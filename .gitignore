@@ -2,4 +2,4 @@ env/
 eds/
 synthea/
 __pycache__/
-*.parquet
+#*.parquet
