@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1>PING 37 – Interface Phase 3</h1>
+  <p class="muted">Dashboard de contrôle : tables EDS, merge report, last_run.json, raccourcis.</p>
+
+  <div id="home">
+    <div class="card">
+      <div class="muted">Clique pour charger le dashboard.</div>
+      <button class="btn"
+        hx-get="/ui/home/data"
+        hx-target="#home"
+        hx-swap="innerHTML"
+      >
+        Charger le dashboard
+      </button>
+    </div>
+  </div>
+{% endblock %}

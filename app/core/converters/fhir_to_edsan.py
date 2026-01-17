@@ -1,16 +1,12 @@
 import json
 import os
 import tempfile
-from app.core.converters.eds_merge import merge_run_into_eds
+from pathlib import Path
+
 from app.core.config.merge_keys import MERGE_KEYS
-import tempfile
-from pathlib import Path
-from app.core.converters.build_eds_with_fhir import EDS_DIR as DEFAULT_EDS_DIR
-from pathlib import Path
-
-
-
-from app.core.converters.build_eds_with_fhir import build_eds, PROJECT_ROOT
+from app.core.converters.eds_merge import merge_run_into_eds
+from app.core.converters.build_eds_with_fhir import EDS_DIR as DEFAULT_EDS_DIR, build_eds
+from app.utils.helpers import write_last_run_report
 
 
 def process_dir(
@@ -105,20 +101,12 @@ def process_bundle(
             return result
         
 def _write_last_run(result: dict, target_eds_dir: str) -> None:
-    """
-    Sauvegarde un rapport JSON du dernier run dans eds/last_run.json
-    (utile pour la restitution et debug).
-    """
-    try:
-        import json
-        from pathlib import Path
+    """Compat: wrapper historique.
 
-        p = Path(target_eds_dir) / "last_run.json"
-        with open(p, "w", encoding="utf-8") as f:
-            json.dump(result, f, ensure_ascii=False, indent=2)
-    except Exception:
-        # pas bloquant
-        pass
+    L'écriture du report a été centralisée dans app.utils.helpers.write_last_run_report.
+    On garde ce wrapper pour ne pas casser d'éventuels imports.
+    """
+    write_last_run_report(result, target_eds_dir)
 
 
 

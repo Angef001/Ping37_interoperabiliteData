@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Explorer EDS</h1>
+<p class="muted">Choisir une table parquet et afficher un aperçu.</p>
+
+<div class="card">
+  <form id="edsForm">
+    <div class="muted" style="margin-bottom:8px;"><b>Choisir une table</b></div>
+    <select id="table" name="table">
+      {% for t in tables %}
+        <option value="{{ t }}">{{ t }}</option>
+      {% endfor %}
+    </select>
+
+    <div class="muted" style="margin:14px 0 8px;"><b>Nombre de lignes à afficher</b></div>
+
+    <div class="row" style="gap:12px;">
+      <input id="limit" name="limit" type="range" min="5" max="500" value="50"
+             oninput="document.getElementById('limitValue').innerText=this.value;">
+      <div class="badge"><span id="limitValue">50</span> lignes</div>
+    </div>
+
+    <div style="margin-top:14px;" class="row">
+      <button class="btn" type="button"
+        hx-get="/ui/eds/preview"
+        hx-include="#edsForm"
+        hx-target="#preview"
+        hx-swap="innerHTML">
+        Afficher preview
+      </button>
+
+      <button class="btn ghost" type="button"
+        hx-get="/ui/eds/meta"
+        hx-include="#edsForm"
+        hx-target="#meta"
+        hx-swap="innerHTML">
+        Infos table
+      </button>
+    </div>
+  </form>
+</div>
+
+<div id="meta"></div>
+<div id="preview"></div>
+{% endblock %}

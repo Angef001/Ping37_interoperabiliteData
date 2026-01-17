@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Import FHIR</h1>
+<p class="muted">Importer un Bundle FHIR (JSON). L’API lance la conversion et met à jour l’EDS.</p>
+
+<div class="card">
+  <div class="muted" style="margin-bottom:10px;"><b>Bundle JSON</b></div>
+
+  <form id="uploadForm"
+        hx-post="/ui/import/run"
+        hx-target="#result"
+        hx-swap="innerHTML"
+        enctype="multipart/form-data">
+
+    <input class="file" type="file" name="file" accept=".json,application/json" required />
+    <div style="margin-top:12px;" class="row">
+      <button class="btn" type="submit">Importer & convertir</button>
+      <a class="btn ghost" href="/docs" target="_blank">Voir Swagger</a>
+    </div>
+  </form>
+</div>
+
+<div id="result"></div>
+{% endblock %}

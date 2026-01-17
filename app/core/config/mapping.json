@@ -1,4 +1,13 @@
 {
+  "_schemas": {
+    "patient.parquet": ["PATID", "PATBD", "PATAGE", "PATSEX"],
+    "mvt.parquet": ["PATAGE", "PATSEX", "DATENT", "DATSORT", "SEJUF", "SEJUM", "PATID", "EVTID", "ELTID"],
+    "biol.parquet": ["PRLVTDATE", "SEJUM", "SEJUF", "PNAME", "ANAME", "RNAME", "LOINC", "RESULT", "UNIT", "MINREF", "MAXREF", "VALIDADATE", "PATAGE", "PATSEX", "PATID", "EVTID", "ELTID"],
+    "pharma.parquet": ["PRES", "ALLSPELABEL", "ALLUCD13", "DATENT", "DATSORT", "DATPRES", "CAT", "SEJUM", "SEJUF", "UFPRO", "PATBD", "PATAGE", "PATSEX", "SRC", "PATID", "EVTID", "ELTID"],
+    "doceds.parquet": ["RECTXT", "RECFAMTXT", "RECDATE", "RECTYPE", "SEJUM", "SEJUF", "PATBD", "PATAGE", "PATSEX", "PATID", "EVTID", "ELTID"],
+    "pmsi.parquet": ["DALL", "DATENT", "DATSORT", "SEJDUR", "SEJUM", "SEJUF", "PATBD", "PATAGE", "PATSEX", "CODEACTES", "ACTES", "MODEENT", "MODESORT", "PMSISTATUT", "GHM", "SEVERITE", "SRC", "PATID", "EVTID", "ELTID"]
+  },
+
   "Patient": {
     "table_name": "patient.parquet",
     "columns": {
