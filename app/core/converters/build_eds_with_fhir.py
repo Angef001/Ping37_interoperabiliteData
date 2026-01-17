@@ -124,6 +124,7 @@ def enforce_schema(df: pl.DataFrame, table_name: str) -> pl.DataFrame:
 # FONCTION PRINCIPALE
 # =============================================================================
 
+<<<<<<< HEAD
 def build_eds():
     print("Démarrage de la construction de l'EDS...")
 
@@ -146,15 +147,85 @@ def build_eds():
     # 1) Extraction depuis les Bundles FHIR
     # ----------------------------
     for file_path in fhir_files:
+=======
+def build_eds(
+    fhir_dir: str | None = None,
+    eds_dir: str | None = None,
+    mapping_file: str | None = None,
+    verbose: bool = True,
+) -> dict:
+    """
+    Pipeline FHIR (dossier de bundles *.json) -> EDS (Parquet).
+
+    - fhir_dir: dossier contenant des fichiers *.json (Bundles FHIR)
+               par défaut: PROJECT_ROOT/synthea/output/fhir
+    - eds_dir: dossier de sortie Parquet
+              par défaut: PROJECT_ROOT/eds
+    - mapping_file: mapping.json
+                   par défaut: PROJECT_ROOT/app/core/config/mapping.json
+    - verbose: logs console
+    """
+    if verbose:
+        print("Démarrage de la construction de l'EDS...")
+
+    # Valeurs par défaut (compatibles avec votre projet)
+    fhir_dir = fhir_dir or FHIR_DIR
+    eds_dir = eds_dir or EDS_DIR
+    mapping_file = mapping_file or MAPPING_FILE
+
+    summary = {
+        "fhir_dir": fhir_dir,
+        "eds_dir": eds_dir,
+        "mapping_file": mapping_file,
+        "files_processed": 0,
+        "tables": {},          # table_name -> {"rows": int, "cols": int, "generated": bool}
+        "empty_tables": [],    # tables sans lignes
+        "warnings": [],
+    }
+
+    # Vérification mapping
+    if not os.path.exists(mapping_file):
+        msg = f"[ERREUR] Fichier de mapping introuvable : {mapping_file}"
+        if verbose:
+            print(msg)
+        summary["warnings"].append(msg)
+        return summary
+
+    # Chargement mapping
+    with open(mapping_file, "r", encoding="utf-8") as f:
+        mapping_rules = json.load(f)
+
+    # Buffers par table
+    buffers = {rule["table_name"]: [] for rule in mapping_rules.values()}
+
+    # Lecture des fichiers FHIR
+    fhir_files = glob.glob(os.path.join(fhir_dir, "*.json"))
+    if verbose:
+        print(f"Traitement de {len(fhir_files)} fichiers source...")
+
+    os.makedirs(eds_dir, exist_ok=True)
+
+    # Extraction
+    for idx, file_path in enumerate(fhir_files, start=1):
+>>>>>>> d26be1a9c2899bc0ca2c9eea6f265e0ad23c89fb
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 bundle = json.load(f)
         except Exception as e:
-            print(f"[ATTENTION] Erreur de lecture sur le fichier {file_path}: {e}")
+            msg = f"[ATTENTION] Erreur de lecture {file_path}: {e}"
+            if verbose:
+                print(msg)
+            summary["warnings"].append(msg)
             continue
 
         if "entry" not in bundle:
             continue
+<<<<<<< HEAD
+
+        if "entry" not in bundle:
+            continue
+=======
+>>>>>>> d26be1a9c2899bc0ca2c9eea6f265e0ad23c89fb
 
         for entry in bundle["entry"]:
             resource = entry.get("resource", {})
@@ -168,6 +239,7 @@ def build_eds():
                 new_row = {}
                 for col_name, json_path in columns_map.items():
                     new_row[col_name] = get_value_from_path(resource, json_path)
+<<<<<<< HEAD
 
                 buffers[target_table].append(new_row)
 
@@ -183,16 +255,32 @@ def build_eds():
     dfs = {}
     df_patient = None
     df_mvt = None
+=======
+
+                buffers[target_table].append(new_row)
+
+        summary["files_processed"] += 1
+        if verbose and idx % 10 == 0:
+            print(f"   ... {idx} fichiers traités")
+
+    # Écriture + règles métiers simples
+    if verbose:
+        print("Sauvegarde des fichiers Parquet et application des règles métiers...")
+>>>>>>> d26be1a9c2899bc0ca2c9eea6f265e0ad23c89fb
 
     for table_name, data_rows in buffers.items():
         if not data_rows:
-            print(f"[INFO] La table {table_name} est vide, aucun fichier généré.")
+            summary["tables"][table_name] = {"rows": 0, "cols": 0, "generated": False}
+            summary["empty_tables"].append(table_name)
+            if verbose:
+                print(f"[INFO] La table {table_name} est vide, aucun fichier généré.")
             continue
 
         all_cols = set()
         for r in data_rows:
             all_cols.update(r.keys())
 
+<<<<<<< HEAD
         schema = {c: pl.Utf8 for c in all_cols}
         df = pl.DataFrame(data_rows, schema=schema)
 
@@ -201,12 +289,17 @@ def build_eds():
             df = df.with_columns(pl.col("SEJUM").fill_null("Service Général"))
 
         # Calcul PATAGE uniquement dans patient.parquet (puis copié)
+=======
+        # PATAGE (patient)
+>>>>>>> d26be1a9c2899bc0ca2c9eea6f265e0ad23c89fb
         if table_name == "patient.parquet" and "PATBD" in df.columns:
             df = df.with_columns(
                 pl.col("PATBD").map_elements(compute_age, return_dtype=pl.Int64).alias("PATAGE")
             )
-            print(f"   - Colonne PATAGE calculée pour {table_name}")
+            if verbose:
+                print(f"   - Colonne PATAGE calculée pour {table_name}")
 
+<<<<<<< HEAD
         dfs[table_name] = df
 
     # ----------------------------
@@ -252,12 +345,37 @@ def build_eds():
 
         # Sauvegarde parquet
         output_path = os.path.join(EDS_DIR, table_name)
-        df.write_parquet(output_path)
-        print(f"[SUCCES] {table_name} généré ({len(df)} lignes)")
+=======
+        # SEJUM défaut (mvt)
+        if table_name == "mvt.parquet" and "SEJUM" in df.columns:
+            df = df.with_columns(pl.col("SEJUM").fill_null("Service Général"))
 
-    print("Construction terminée.")
+        output_path = os.path.join(eds_dir, table_name)
+>>>>>>> d26be1a9c2899bc0ca2c9eea6f265e0ad23c89fb
+        df.write_parquet(output_path)
+
+        summary["tables"][table_name] = {
+            "rows": df.height,
+            "cols": len(df.columns),
+            "generated": True,
+        }
+
+        if verbose:
+            print(f"[SUCCES] {table_name} généré ({df.height} lignes)")
+
+    if verbose:
+        print("Construction terminée.")
+
+    return summary
+
 
     
 
 if __name__ == "__main__":
+<<<<<<< HEAD
     build_eds()
+=======
+    # Conserve le comportement "script" : lance sur synthea/output/fhir par défaut
+    res = build_eds()
+    print(json.dumps(res, ensure_ascii=False, indent=2))
+>>>>>>> d26be1a9c2899bc0ca2c9eea6f265e0ad23c89fb
