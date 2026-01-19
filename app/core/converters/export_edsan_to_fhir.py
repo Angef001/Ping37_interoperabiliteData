@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from edsan_to_fhir import export_eds_to_fhir
+from app.core.converters.edsan_to_fhir import export_eds_to_fhir
 
 load_dotenv()  # charge le .env
 
