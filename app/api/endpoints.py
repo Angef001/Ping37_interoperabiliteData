@@ -9,28 +9,73 @@ import json
 from fastapi.responses import FileResponse
 import zipfile
 import tempfile
-import json
+from pathlib import Path
+import shutil
+from dotenv import load_dotenv
+import os
 
-
-
-
-
+# Creez dans votre .env les variables suivantes :
+# FHIR_BUNDLE_STRATEGY = patient ou encounter
+# FHIR_EXPORT_DIR = dossier de sortie des exports
+# FHIR_OUTPUT_DIR = dossier de sortie FHIR
+load_dotenv()  # charge le .env
 router = APIRouter()
 
 
 
 # --- ENDPOINT : EDS -> FHIR ---
-@router.post("/convert/edsan-to-fhir", tags=["Conversion"])
-async def convert_edsan_to_fhir(data: List[PmsiModel]):
-    """
-    Reçoit une liste de données EDS (ex: lignes PMSI) et reconstruit des ressources FHIR.
-    """
+@router.post("/export/edsan-to-fhir-zip", tags=["Export"])
+async def export_edsan_to_fhir_zip():
+    # charger la variable d’environnement
+    bundle_strategy = os.getenv("FHIR_BUNDLE_STRATEGY", "patient")
+
+    if bundle_strategy not in ("patient", "encounter"):
+        raise HTTPException(
+            status_code=500,
+            detail="FHIR_BUNDLE_STRATEGY doit être 'patient' ou 'encounter'"
+        )
+
+    # aller à laracine du projet
+    project_root = Path(EDS_DIR).resolve().parent
+
+    # dossier de sortie (depuis .env ou défaut)
+    out_dir = Path(os.getenv("FHIR_OUTPUT_DIR", "fhir_output"))
+
+    # si chemin relatif → on le met sous la racine projet
+    if not out_dir.is_absolute():
+        out_dir = project_root / out_dir
+
+    # nettoyage ancien export
+    if out_dir.exists():
+        shutil.rmtree(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # génération des bundles FHIR
     try:
-        # On délègue au binôme 2
-        bundle = edsan_to_fhir.reconstruct_bundle(data)
-        return bundle
+        edsan_to_fhir.export_eds_to_fhir(
+            eds_dir=EDS_DIR,
+            output_dir=str(out_dir),
+            bundle_strategy=bundle_strategy,
+        )
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Erreur de reconstruction : {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    # création du ZIP
+    zip_path = out_dir / "fhir_export.zip"
+    if zip_path.exists():
+        zip_path.unlink()
+
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as z:
+        for p in out_dir.glob("*.json"):
+            z.write(p, arcname=p.name)
+
+    # retour du ZIP
+    return FileResponse(
+        path=str(zip_path),
+        filename="fhir_export.zip",
+        media_type="application/zip",
+    )
+
     
 # --- ENDPOINT : FHIR (dossier) -> EDS ---
 @router.post("/convert/fhir-dir-to-edsan", tags=["Conversion"])
