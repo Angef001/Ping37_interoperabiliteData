@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <title>Export FHIR</title>
+</head>
+<body>
+  <h1>Exporter EDS → FHIR (ZIP)</h1>
+  <a href="/ui">← Retour</a>
+
+  <p>La stratégie (patient/encounter) est définie par la variable d'environnement <code>FHIR_BUNDLE_STRATEGY</code>.</p>
+
+  <button id="btn">Télécharger le ZIP FHIR</button>
+  <pre id="msg"></pre>
+
+  <script>
+    document.getElementById("btn").addEventListener("click", async () => {
+      const msg = document.getElementById("msg");
+      msg.textContent = "Export en cours...";
+
+      const res = await fetch("/export/edsan-to-fhir-zip", { method: "POST" }); 
+
+      if (!res.ok) {
+        msg.textContent = "Erreur: " + await res.text();
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "fhir_export.zip";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      URL.revokeObjectURL(url);
+      msg.textContent = "ZIP téléchargé ✅";
+    });
+  </script>
+</body>
+</html>
+{% endblock %}

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, Request, UploadFile, File
 from app.core.models.edsan_models import PmsiModel, PatientModel
 from app.core.converters import fhir_to_edsan, edsan_to_fhir
 from typing import List
@@ -6,7 +6,7 @@ import os
 import polars as pl
 from app.core.converters.build_eds_with_fhir import EDS_DIR
 import json
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 import zipfile
 import tempfile
 from pathlib import Path
@@ -76,7 +76,13 @@ async def export_edsan_to_fhir_zip():
         media_type="application/zip",
     )
 
-    
+@router.get("/ui/export/fhir", response_class=HTMLResponse)
+async def ui_export_fhir(request: Request):
+    return tempfile.template.TemplateResponse("export_fhir.html", {"request": request})
+
+
+
+
 # --- ENDPOINT : FHIR (dossier) -> EDS ---
 @router.post("/convert/fhir-dir-to-edsan", tags=["Conversion"])
 async def convert_fhir_dir_to_edsan(payload: dict | None = None):

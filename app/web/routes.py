@@ -7,7 +7,8 @@ from pathlib import Path
 from app.core.converters.fhir_to_edsan import process_dir  
 from app.core.converters.fhir_to_edsan import process_bundle
 from app.core.converters.build_eds_with_fhir import EDS_DIR
-
+from app.core.converters.edsan_to_fhir import export_eds_to_fhir
+import tempfile
 from fastapi.responses import StreamingResponse
 import io, zipfile
 
@@ -93,6 +94,13 @@ async def eds_preview(table: str, limit: int = 50):
         </div>
         """
     )
+
+
+# ================= EXPORT FHIR =================
+@router.get("/ui/export/fhir", response_class=HTMLResponse)
+async def ui_export_fhir(request: Request):
+    return templates.TemplateResponse("export_fhir.html", {"request": request})
+
 
 
 
@@ -390,4 +398,5 @@ async def eds_meta(table: str, limit: int = 50):
         f"<div style='margin-top:8px;'>Lignes : <b>{df.height}</b> — Colonnes : <b>{len(df.columns)}</b></div>"
         "</div>"
     )
+
 
