@@ -7,20 +7,85 @@
   <title>Export FHIR</title>
 </head>
 <body>
-  <h1>Exporter EDS → FHIR (ZIP)</h1>
-  <a href="/ui">← Retour</a>
 
-  <p>La stratégie (patient/encounter) est définie par la variable d'environnement <code>FHIR_BUNDLE_STRATEGY</code>.</p>
+  <div class="page">
+    <h1 class="page-title">Exporter EDS</h1>
+    <p class="page-subtitle">Exporter EDS → FHIR au format ZIP.</p>
 
-  <button id="btn">Télécharger le ZIP FHIR</button>
-  <pre id="msg"></pre>
+ <div class="card">
+
+<form id="cfg" class="form">
+
+  <div class="field field-spaced">
+    <p class="description">Chemin du dossier EDS.</p>
+    <input class="input" name="EDS_DIR" type="text">
+  </div>
+
+  <div class="field field-spaced">
+    <p class="description">Dossier de sortie / temporaires FHIR.</p>
+    <input class="input" name="FHIR_OUTPUT_DIR" type="text">
+  </div>
+
+  <div class="field field-spaced">
+    <p class="description">Dossier export final .</p>
+    <input class="input" name="FHIR_EXPORT_DIR" type="text">
+  </div>
+
+  <div class="field field-spaced">
+    <p class="description">Stratégie utilisée pour le bundle.</p>
+    <select class="select" >
+      <option value=""></option>
+      <option value="patient">patient</option>
+      <option value="encounter">encounter</option>
+    </select>
+  </div>
+
+</form>
+
+
+
+  <div class="actions actions-spaced">
+    <button id="btn" type="button" class="btn btn-primary">
+      <span class="btn-text">Télécharger ZIP</span>
+      <span class="spinner" aria-hidden="true"></span>
+    </button>
+
+    <a class="btn btn-outline" href="/ui">Retour</a>
+  </div>
+
+  <pre id="msg" class="msg"></pre>
+</div>
+
 
   <script>
+    function getPayload() {
+      const form = document.getElementById("cfg");
+      const data = new FormData(form);
+
+      const getOrNull = (key) => {
+        const v = (data.get(key) || "").trim();
+        return v === "" ? null : v;
+      };
+
+      return {
+        EDS_DIR: getOrNull("EDS_DIR"),
+        FHIR_OUTPUT_DIR: getOrNull("FHIR_OUTPUT_DIR"),
+        FHIR_EXPORT_DIR: getOrNull("FHIR_EXPORT_DIR"),
+        FHIR_BUNDLE_STRATEGY: getOrNull("FHIR_BUNDLE_STRATEGY"),
+      };
+    }
+
     document.getElementById("btn").addEventListener("click", async () => {
       const msg = document.getElementById("msg");
       msg.textContent = "Export en cours...";
 
-      const res = await fetch("/export/edsan-to-fhir-zip", { method: "POST" }); 
+      const payload = getPayload();
+
+      const res = await fetch("/export/edsan-to-fhir-zip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
       if (!res.ok) {
         msg.textContent = "Erreur: " + await res.text();
@@ -41,6 +106,7 @@
       msg.textContent = "ZIP téléchargé ✅";
     });
   </script>
+
 </body>
 </html>
 {% endblock %}
