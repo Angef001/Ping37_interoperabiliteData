@@ -17,8 +17,8 @@
       "PATID": "subject.reference",
       "ELTID": "id",
       "DATENT": "period.start",
-      "SEJUM": "location[0].physicalType.text",
-      "SEJUF": "serviceProvider.display"
+      "SEJUM": "serviceProvider.display",
+      "SEJUF": "location[0].location.display"
     }
   },
   "Observation": {

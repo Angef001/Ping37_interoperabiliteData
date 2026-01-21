@@ -39,7 +39,7 @@ def display_tables():
                 print(f"   Volumétrie : {df.height} lignes x {df.width} colonnes")
                 
                 # Aperçu des données (5 premières lignes)
-                print(df.head(5))
+                print(df.head(10))
                 print("-" * 60)
                 
             except Exception as e:
