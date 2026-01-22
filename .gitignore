@@ -26,3 +26,6 @@ output/
 # --- OS ---
 .DS_Store
 Thumbs.db
+
+#variables d'environnement
+.env

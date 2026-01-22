@@ -1,0 +1,36 @@
+services:
+  # L'entrepôt FHIR
+  fhir-server:
+    build:
+      context: ./entrepot_fhir/hapi-fhir-jpaserver-starter-master
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      # Utilisation d'un volume nommé pour les données HAPI
+      - fhir-data:/usr/local/tomcat/data/hapi:Z 
+
+  # Ton API de conversion
+  api-converter:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      # L'API doit savoir où envoyer les ressources converties
+      - FHIR_WAREHOUSE_URL=http://fhir-server:8080/fhir
+    depends_on:
+      - fhir-server
+
+  # Le client CLI Python
+  cli-client:
+    build: ./client_pkg
+    depends_on:
+      - fhir-server
+    environment:
+      - FHIR_URL=http://fhir-server:8080/fhir
+    tty: true
+
+volumes:
+  fhir-data:

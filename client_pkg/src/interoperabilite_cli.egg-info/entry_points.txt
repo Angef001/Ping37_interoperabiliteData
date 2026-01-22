@@ -1,0 +1,2 @@
+[console_scripts]
+chu-fhir = src.main:app
