@@ -29,3 +29,9 @@ Thumbs.db
 
 #variables d'environnement
 .env
+
+# Java / Maven
+target/
+*.jar
+*.war
+*.class
