@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, UploadFile, File, HTTPException
+from fastapi import APIRouter, Request, UploadFile, File, HTTPException, Body
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 import os, json
@@ -7,14 +7,30 @@ from pathlib import Path
 from app.core.converters.fhir_to_edsan import process_dir  
 from app.core.converters.fhir_to_edsan import process_bundle
 from app.core.converters.build_eds_with_fhir import EDS_DIR
-from app.core.converters.edsan_to_fhir import export_eds_to_fhir
+from Ping37_interoperabiliteData.app.core.converters.edsan_to_fhir_1 import export_eds_to_fhir, export_eds_to_fhir_zip
 import tempfile
 from fastapi.responses import StreamingResponse
 import io, zipfile
+from pydantic import BaseModel
+from typing import Optional
+
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/web/templates")
 
+def merged_cfg(payload: dict) -> dict:
+    def pick(key: str, default: str | None = None):
+        v = payload.get(key)
+        if v is None or (isinstance(v, str) and v.strip() == ""):
+            return os.getenv(key, default)
+        return v
+
+    return {
+        "EDS_DIR": pick("EDS_DIR"),
+        "FHIR_OUTPUT_DIR": pick("FHIR_OUTPUT_DIR"),
+        "FHIR_EXPORT_DIR": pick("FHIR_EXPORT_DIR"),
+        "FHIR_BUNDLE_STRATEGY": pick("FHIR_BUNDLE_STRATEGY", "patient"),
+    }
 
 def list_parquets():
     if not os.path.isdir(EDS_DIR):
@@ -50,6 +66,7 @@ async def import_run(file: UploadFile = File(...)):
             f"<pre class='pre'>{str(e)}</pre></div>",
             status_code=400
         )
+
 
 
 # ================= EDS =================
@@ -101,6 +118,54 @@ async def eds_preview(table: str, limit: int = 50):
 async def ui_export_fhir(request: Request):
     return templates.TemplateResponse("export_fhir.html", {"request": request})
 
+class ExportEDSANtoFHIRRequest(BaseModel):
+    EDS_DIR: Optional[str] = None
+    FHIR_OUTPUT_DIR: Optional[str] = None
+    FHIR_EXPORT_DIR: Optional[str] = None
+    FHIR_BUNDLE_STRATEGY: Optional[str] = None
+
+@router.post(
+    "/api/v1/export/edsan-to-fhir-zip",
+    responses={200: {"content": {"application/zip": {}}}},
+)
+async def export_edsan_to_fhir_zip(
+    payload: ExportEDSANtoFHIRRequest
+):
+    print("DEBUG >>> FHIR_MAPPING_PATH =", os.getenv("FHIR_MAPPING_PATH"))
+    print("DEBUG >>> CWD =", os.getcwd())
+    cfg = merged_cfg(payload.model_dump())
+
+    if cfg["FHIR_BUNDLE_STRATEGY"] not in ("patient", "encounter"):
+        raise HTTPException(status_code=400, detail="FHIR_BUNDLE_STRATEGY invalide")
+
+    zip_bytes = export_eds_to_fhir_zip(cfg)
+
+    return StreamingResponse(
+        io.BytesIO(zip_bytes),
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=fhir_export.zip"},
+    )
+
+
+
+# ================= EXPORT FHIR (API) =================
+@router.post("/export/edsan-to-fhir-zip")
+async def export_edsan_to_fhir_zip(payload: dict = Body(default={})):
+    cfg = merged_cfg(payload)
+
+    # validation simple
+    if cfg["FHIR_BUNDLE_STRATEGY"] not in ("patient", "encounter"):
+        raise HTTPException(status_code=400, detail="FHIR_BUNDLE_STRATEGY invalide")
+
+    # Ici, on appelle ton converter EDSAN -> FHIR
+    # IMPORTANT: il faut que export_eds_to_fhir accepte cfg (ou que tu l’adaptes)
+    zip_bytes = export_eds_to_fhir(cfg)  # <-- à adapter selon ta fonction actuelle
+
+    return StreamingResponse(
+        io.BytesIO(zip_bytes),
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=fhir_export.zip"},
+    )
 
 
 
