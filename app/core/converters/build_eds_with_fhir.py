@@ -1,10 +1,9 @@
 import json
 import glob
 import os
-
 import polars as pl
 
-from app.utils.helpers import (
+from app.core.utils.helpers import (
     compute_age,
     enforce_schema,
     get_value_from_path,
@@ -13,26 +12,18 @@ from app.utils.helpers import (
     _coalesce_from,
 )
 
-
 # =============================================================================
-# CONFIGURATION DES CHEMINS
+# CONFIGURATION
 # =============================================================================
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_DIR)))
 
 MAPPING_FILE = os.path.join(PROJECT_ROOT, "app", "core", "config", "mapping.json")
 FHIR_DIR = os.path.join(PROJECT_ROOT, "synthea", "output", "fhir")
-EDS_DIR = os.path.join(PROJECT_ROOT, "eds")
-
-
-"""Build EDS Parquet tables from FHIR bundles.
-
-Note: reusable utilities were moved to app.utils.helpers (safe refactor).
-"""
-
+EDS_DIR = os.path.join(PROJECT_ROOT, "data", "eds")
 
 # =============================================================================
-# BUILD
+# FONCTION PRINCIPALE ETL
 # =============================================================================
 
 def build_eds(
@@ -41,10 +32,15 @@ def build_eds(
     mapping_file: str | None = None,
     verbose: bool = True,
 ) -> dict:
+    """
+    Construit les tables Parquet de l'EDS a partir des bundles FHIR.
+    Effectue l'extraction, la transformation, l'enrichissement et le chargement.
+    """
 
     if verbose:
-        print("Démarrage de la construction de l'EDS...")
+        print("Demarrage de la construction de l'EDS...")
 
+    # Initialisation des chemins
     fhir_dir = fhir_dir or FHIR_DIR
     eds_dir = eds_dir or EDS_DIR
     mapping_file = mapping_file or MAPPING_FILE
@@ -59,20 +55,20 @@ def build_eds(
         "warnings": [],
     }
 
+    # Verification du fichier de mapping
     if not os.path.exists(mapping_file):
         msg = f"[ERREUR] mapping.json introuvable : {mapping_file}"
-        if verbose:
-            print(msg)
+        if verbose: print(msg)
         summary["warnings"].append(msg)
         return summary
 
+    # Chargement de la configuration
     mapping_raw = load_json_flexible(mapping_file)
-
     schemas = mapping_raw.get("_schemas", {})
     mapping_rules = {k: v for k, v in mapping_raw.items() if not str(k).startswith("_")}
     expected_columns = _compute_expected_columns(mapping_rules, schemas)
 
-    # buffers par table
+    # Preparation des buffers d'extraction
     table_names = {rule["table_name"] for rule in mapping_rules.values()}
     buffers = {t: [] for t in table_names}
 
@@ -82,15 +78,16 @@ def build_eds(
 
     os.makedirs(eds_dir, exist_ok=True)
 
-    # --- extraction ---
+    # -------------------------------------------------------------------------
+    # EXTRACTION (Parsing JSON)
+    # -------------------------------------------------------------------------
     for idx, file_path in enumerate(fhir_files, start=1):
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 bundle = json.load(f)
         except Exception as e:
             msg = f"[ATTENTION] Erreur lecture {file_path}: {e}"
-            if verbose:
-                print(msg)
+            if verbose: print(msg)
             summary["warnings"].append(msg)
             continue
 
@@ -101,6 +98,7 @@ def build_eds(
             resource = entry.get("resource", {})
             rtype = resource.get("resourceType")
 
+            # Application des regles de mapping si le type de ressource est configure
             if rtype in mapping_rules:
                 rule = mapping_rules[rtype]
                 target_table = rule["table_name"]
@@ -114,89 +112,178 @@ def build_eds(
 
         summary["files_processed"] += 1
         if verbose and idx % 10 == 0:
-            print(f"   ... {idx} fichiers traités")
+            print(f"   ... {idx} fichiers traites")
 
-    # --- construire tous les DF en mémoire (pour enrichir via joins) ---
+    # Conversion en DataFrames Polars
     dfs: dict[str, pl.DataFrame] = {}
-
     for table_name in table_names:
         rows = buffers.get(table_name, [])
-        if rows:
-            dfs[table_name] = pl.DataFrame(rows)
-        else:
-            dfs[table_name] = pl.DataFrame()
+        dfs[table_name] = pl.DataFrame(rows) if rows else pl.DataFrame()
 
-    # --- règles métiers de base ---
-    # PATAGE dans patient
-    if "patient.parquet" in dfs and dfs["patient.parquet"].height > 0 and "PATBD" in dfs["patient.parquet"].columns:
-        dfs["patient.parquet"] = dfs["patient.parquet"].with_columns(
-            pl.col("PATBD").map_elements(compute_age, return_dtype=pl.Int64).alias("PATAGE")
-        )
+    # -------------------------------------------------------------------------
+    # ETAPE 1 : NETTOYAGE DES IDENTIFIANTS
+    # -------------------------------------------------------------------------
+    # Suppression des prefixes techniques (urn:uuid:, Patient/, etc.)
+    
+    id_cols = ["PATID", "EVTID", "ELTID"]
+    id_cleaning_regex = r"^(urn:uuid:|urn:oid:|[\w]+/|.*\|)"
+
+    for table_name, df in dfs.items():
+        if df.height > 0:
+            cols_to_clean = [c for c in id_cols if c in df.columns]
+            
+            if cols_to_clean:
+                # Cast explicite en Utf8 pour gerer les colonnes potentiellement nulles
+                dfs[table_name] = df.with_columns([
+                    pl.col(c).cast(pl.Utf8).str.replace(id_cleaning_regex, "").alias(c) 
+                    for c in cols_to_clean
+                ])
+                if verbose:
+                    print(f"   [Nettoyage] IDs nettoyes pour {table_name}")
+
+    # -------------------------------------------------------------------------
+    # ETAPE 2 : REGLES METIERS PATIENT
+    # -------------------------------------------------------------------------
+    
+    if "patient.parquet" in dfs and dfs["patient.parquet"].height > 0:
+        df_pat = dfs["patient.parquet"]
+
+        # Normalisation du sexe (Standardisation M/F/I)
+        if "PATSEX" in df_pat.columns:
+            gender_map = {
+                "male": "M", "female": "F",
+                "other": "I", "unknown": "I"
+            }
+            # Utilisation de replace_strict pour stabilite
+            df_pat = df_pat.with_columns(
+                pl.col("PATSEX").replace_strict(gender_map, default="I").alias("PATSEX")
+            )
+
+        # Calcul de l'age a partir de la date de naissance
+        if "PATBD" in df_pat.columns:
+            df_pat = df_pat.with_columns(
+                pl.col("PATBD").map_elements(compute_age, return_dtype=pl.Int64).alias("PATAGE")
+            )
+            
+        dfs["patient.parquet"] = df_pat
         if verbose:
-            print("   - Colonne PATAGE calculée pour patient.parquet")
+            print("   [Regles] Patient : Normalisation sexe et calcul age.")
 
-    # SEJUM défaut dans mvt
-    if "mvt.parquet" in dfs and dfs["mvt.parquet"].height > 0 and "SEJUM" in dfs["mvt.parquet"].columns:
-        dfs["mvt.parquet"] = dfs["mvt.parquet"].with_columns(pl.col("SEJUM").fill_null("Service Général"))
+    # -------------------------------------------------------------------------
+    # ETAPE 3 : REGLES METIERS MOUVEMENT (MVT)
+    # -------------------------------------------------------------------------
 
-    # --- enrichissements pour supprimer les NULL "structurels" ---
-    # 1) Préparer patient light
+    if "mvt.parquet" in dfs and dfs["mvt.parquet"].height > 0:
+        df_mvt = dfs["mvt.parquet"]
+
+        # Valeur par defaut pour l'unite medicale
+        if "SEJUM" in df_mvt.columns:
+            df_mvt = df_mvt.with_columns(
+                pl.col("SEJUM").fill_null("Hôpital Indéterminé")
+            )
+        
+        dfs["mvt.parquet"] = df_mvt
+
+    # -------------------------------------------------------------------------
+    # ETAPE 4 : ENRICHISSEMENT (JOINTURES)
+    # -------------------------------------------------------------------------
+    
+    # A. Preparation du referentiel Patient (colonnes a propager)
     patient_light = None
     if "patient.parquet" in dfs and dfs["patient.parquet"].height > 0 and "PATID" in dfs["patient.parquet"].columns:
-        cols = [c for c in ["PATID", "PATBD", "PATAGE", "PATSEX"] if c in dfs["patient.parquet"].columns]
-        patient_light = dfs["patient.parquet"].select(cols)
+        cols_needed = [c for c in ["PATID", "PATBD", "PATAGE", "PATSEX"] if c in dfs["patient.parquet"].columns]
+        patient_light = dfs["patient.parquet"].select(cols_needed)
 
-    # 2) Enrichir mvt avec PATAGE/PATSEX/PATBD via PATID
-    if "mvt.parquet" in dfs and dfs["mvt.parquet"].height > 0 and patient_light is not None and "PATID" in dfs["mvt.parquet"].columns:
-        df = dfs["mvt.parquet"].join(patient_light, on="PATID", how="left", suffix="_pat")
-        df = _coalesce_from(df, "PATAGE", "PATAGE_pat")
-        df = _coalesce_from(df, "PATSEX", "PATSEX_pat")
-        df = _coalesce_from(df, "PATBD", "PATBD_pat")
-        dfs["mvt.parquet"] = df
+    # B. Enrichissement de la table MVT avec les donnees Patient
+    if "mvt.parquet" in dfs and dfs["mvt.parquet"].height > 0 and patient_light is not None:
+        if "PATID" in dfs["mvt.parquet"].columns:
+            df_mvt = dfs["mvt.parquet"].join(patient_light, on="PATID", how="left", suffix="_pat")
+            
+            # Coalesce pour combler les valeurs manquantes
+            df_mvt = _coalesce_from(df_mvt, "PATAGE", "PATAGE_pat")
+            df_mvt = _coalesce_from(df_mvt, "PATSEX", "PATSEX_pat")
+            
+            dfs["mvt.parquet"] = df_mvt
+            if verbose:
+                print("   [Enrichissement] Mvt enrichi avec donnees Patient.")
 
-    # 3) Préparer mvt light pour enrichir les autres tables via EVTID
+    # C. Preparation du referentiel MVT (pour enrichir les tables cliniques)
     mvt_light = None
     if "mvt.parquet" in dfs and dfs["mvt.parquet"].height > 0 and "EVTID" in dfs["mvt.parquet"].columns:
-        keep = [c for c in ["EVTID", "PATID", "ELTID", "DATENT", "DATSORT", "SEJUM", "SEJUF", "PATAGE", "PATSEX", "PATBD"] if c in dfs["mvt.parquet"].columns]
-        mvt_light = dfs["mvt.parquet"].select(keep)
+        cols_needed = [c for c in ["EVTID", "PATID", "SEJUM", "SEJUF", "DATENT", "DATSORT", "PATAGE", "PATSEX"] 
+                       if c in dfs["mvt.parquet"].columns]
+        mvt_light = dfs["mvt.parquet"].select(cols_needed)
 
-    # helper: enrichir une table en 2 joins (PATID puis EVTID) avec coalesce
-    def enrich_table(table: str):
-        if table not in dfs or dfs[table].height == 0:
+    # D. Fonction d'enrichissement generique des tables metiers
+    def apply_enrichment(target_table_name):
+        if target_table_name not in dfs or dfs[target_table_name].height == 0:
             return
 
-        df = dfs[table]
+        df = dfs[target_table_name]
 
-        # Join patient (PATID)
+        # Enrichissement via PATID (si EVTID manquant)
         if patient_light is not None and "PATID" in df.columns:
             df = df.join(patient_light, on="PATID", how="left", suffix="_pat")
-            df = _coalesce_from(df, "PATBD", "PATBD_pat")
             df = _coalesce_from(df, "PATAGE", "PATAGE_pat")
             df = _coalesce_from(df, "PATSEX", "PATSEX_pat")
+            df = _coalesce_from(df, "PATBD", "PATBD_pat")
 
-        # Join mvt (EVTID)
+        # Enrichissement via EVTID (Prioritaire : recupere le contexte sejour)
         if mvt_light is not None and "EVTID" in df.columns:
             df = df.join(mvt_light, on="EVTID", how="left", suffix="_mvt")
-            # champs souvent vides dans biol/pharma/doceds/pmsi
-            df = _coalesce_from(df, "PATID", "PATID_mvt")
-            df = _coalesce_from(df, "ELTID", "ELTID_mvt")
-            df = _coalesce_from(df, "DATENT", "DATENT_mvt")
-            df = _coalesce_from(df, "DATSORT", "DATSORT_mvt")
+            
+            # Propagation contexte hospitalier
             df = _coalesce_from(df, "SEJUM", "SEJUM_mvt")
             df = _coalesce_from(df, "SEJUF", "SEJUF_mvt")
-            df = _coalesce_from(df, "PATBD", "PATBD_mvt")
+            df = _coalesce_from(df, "DATENT", "DATENT_mvt")
+            df = _coalesce_from(df, "DATSORT", "DATSORT_mvt")
+            
+            # Propagation contexte patient (via le sejour)
+            df = _coalesce_from(df, "PATID", "PATID_mvt")
             df = _coalesce_from(df, "PATAGE", "PATAGE_mvt")
             df = _coalesce_from(df, "PATSEX", "PATSEX_mvt")
 
-        dfs[table] = df
+        dfs[target_table_name] = df
 
-    # Enrichir toutes les tables sauf patient/mvt
-    for t in ["biol.parquet", "pharma.parquet", "doceds.parquet", "pmsi.parquet"]:
-        enrich_table(t)
+    # Application sur les tables cibles
+    tables_to_enrich = ["biol.parquet", "pharma.parquet", "doceds.parquet", "pmsi.parquet"]
+    for t in tables_to_enrich:
+        apply_enrichment(t)
+        if verbose and t in dfs and dfs[t].height > 0:
+            print(f"   [Enrichissement] {t} enrichi.")
 
-    # --- écrire les Parquet dans un ordre stable + enforce_schema ---
+    # -------------------------------------------------------------------------
+    # ETAPE 5 : CALCUL DUREE SEJOUR (PMSI)
+    # -------------------------------------------------------------------------
+    
+    if "pmsi.parquet" in dfs and dfs["pmsi.parquet"].height > 0:
+        df_pmsi = dfs["pmsi.parquet"]
+        
+        if "DATENT" in df_pmsi.columns and "DATSORT" in df_pmsi.columns:
+            
+            # Nettoyage des timezones (+XX:XX) avant conversion pour eviter ComputeError
+            # Calcul : Date Sortie - Date Entree
+            df_pmsi = df_pmsi.with_columns(
+                (
+                    pl.col("DATSORT").str.replace(r"[+-]\d{2}:\d{2}$", "").str.to_datetime(strict=False) - 
+                    pl.col("DATENT").str.replace(r"[+-]\d{2}:\d{2}$", "").str.to_datetime(strict=False)
+                )
+                .dt.total_days() 
+                .cast(pl.Int64)  
+                .fill_null(0)    
+                .alias("SEJDUR")
+            )
+            
+            if verbose:
+                print("   [Calcul] SEJDUR calcule pour PMSI.")
+        
+        dfs["pmsi.parquet"] = df_pmsi
+
+    # -------------------------------------------------------------------------
+    # SAUVEGARDE ET SCHEMA
+    # -------------------------------------------------------------------------
     if verbose:
-        print("Sauvegarde des fichiers Parquet et application des schémas...")
+        print("Sauvegarde des fichiers Parquet...")
 
     output_order = ["patient.parquet", "mvt.parquet", "biol.parquet", "pharma.parquet", "doceds.parquet", "pmsi.parquet"]
 
@@ -207,9 +294,10 @@ def build_eds(
             summary["tables"][table_name] = {"rows": 0, "cols": 0, "generated": False}
             summary["empty_tables"].append(table_name)
             if verbose:
-                print(f"[INFO] {table_name} vide, aucun fichier généré.")
+                print(f"[INFO] {table_name} vide, fichier non genere.")
             continue
 
+        # Application stricte du schema attendu
         df = enforce_schema(df, table_name, expected_columns)
 
         output_path = os.path.join(eds_dir, table_name)
@@ -218,10 +306,10 @@ def build_eds(
         summary["tables"][table_name] = {"rows": df.height, "cols": len(df.columns), "generated": True}
 
         if verbose:
-            print(f"[SUCCES] {table_name} généré ({df.height} lignes)")
+            print(f"[SUCCES] {table_name} genere ({df.height} lignes)")
 
     if verbose:
-        print("Construction terminée.")
+        print("Construction terminee.")
 
     return summary
 

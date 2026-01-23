@@ -28,4 +28,14 @@ output/
 Thumbs.db
 
 #variables d'environnement
+<<<<<<< HEAD
 .env
+=======
+.env
+
+# Java / Maven
+target/
+*.jar
+*.war
+*.class
+>>>>>>> 7b18703d2bdf1b2fdaccab5a451522715c16af18
