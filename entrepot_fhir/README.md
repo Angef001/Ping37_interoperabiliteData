@@ -36,7 +36,7 @@ mvn spring-boot:run
 
 *(Note : La première exécution téléchargera toutes les dépendances Java, cela peut prendre quelques minutes)*.
 3. **Accès** :
-Ouvre ton navigateur sur [http://localhost:8080/fhir/](https://www.google.com/search?q=http://localhost:8080/fhir/).
+Ouvre ton navigateur sur [http://localhost:8080/fhir/].
 
 ---
 

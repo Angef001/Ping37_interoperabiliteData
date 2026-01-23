@@ -67,26 +67,65 @@ chu-fhir get-resource Patient 123
 
 ---
 
-## 🐳 Utilisation avec Podman
+Markdown
 
-Si le projet est lancé via `podman-compose`, tu peux utiliser le client sans rien installer sur ton système :
+## 🐳 Utilisation avec Podman (Mode Interactif)
+
+Grâce à la conteneurisation, tu peux utiliser le client `chu-fhir` sans rien installer sur ton système hôte. La méthode la plus efficace consiste à entrer dans le conteneur pour utiliser l'outil en mode interactif :
 
 ```bash
-# Exécuter une commande à l'intérieur du conteneur
-podman exec -it cli-client chu-fhir info
+# 1. Entrer dans le conteneur client
+podman exec -it ping37_interoperabilitedata_cli-client_1 bash
 
-```
-
----
+# 2. Une fois à l'intérieur, utilise les commandes directement :
+chu-fhir info
+chu-fhir get-patient 1
+chu-fhir get-patients 1 2 3
+Astuce : Pour quitter le conteneur et revenir à ton terminal Windows/Linux, tape simplement exit
 
 ## ⚙️ Configuration
 
 Le client utilise par défaut l'URL `http://localhost:8080/fhir`.
-En environnement conteneurisé, il utilise automatiquement l'URL du service défini par la variable d'environnement `FHIR_URL`.
+
 
 ---
 
-## 📁 Structure du code
+Voici la section de ton fichier README.md rédigée en Markdown, prête à être copiée-collée :
 
-* `pyproject.toml` : Configuration du package et des scripts.
-* `src/main.py` : Logique principale de l'application et définition des commandes.
+Markdown
+
+## 🐳 Utilisation avec Podman (Mode Interactif)
+
+Grâce à la conteneurisation, tu peux utiliser le client `chu-fhir` sans rien installer sur ton système hôte. La méthode la plus efficace consiste à entrer dans le conteneur pour utiliser l'outil en mode interactif :
+
+```bash
+# 1. Entrer dans le conteneur client
+podman exec -it ping37_interoperabilitedata_cli-client_1 bash
+
+# 2. Une fois à l'intérieur, utilise les commandes directement :
+chu-fhir info
+chu-fhir get-patient 1
+chu-fhir get-patients 1 2 3
+Astuce : Pour quitter le conteneur et revenir à ton terminal Windows/Linux, tape simplement exit.
+
+⚙️ Configuration
+Le client est conçu pour être flexible selon l'environnement d'exécution :
+
+Variables d'environnement : En environnement conteneurisé, le client utilise les variables définies dans le fichier podman-compose.yml :
+
+FHIR_URL : Configurée sur http://127.0.0.1:8080/fhir (adresse locale partagée en mode host).
+
+PYTHONPATH : Définie sur . pour permettre la résolution correcte du module src.
+
+Mode Réseau : L'utilisation du network_mode: host permet au client de communiquer avec l'entrepôt FHIR via l'interface de boucle locale, contournant les limitations DNS des conteneurs sous WSL.
+
+📁 Structure du code
+Le projet suit une structure de package Python standard :
+
+src/ : Répertoire source contenant la logique métier.
+
+main.py : Point d'entrée principal. Contient la définition des commandes CLI (Typer) et la gestion des requêtes HTTP vers l'entrepôt.
+
+pyproject.toml : Fichier de configuration du projet. Il définit les dépendances (typer, requests, rich) et crée l'alias de commande chu-fhir.
+
+Dockerfile : Instructions de build pour l'image du client, incluant l'installation du package et la gestion du répertoire de travail /app.
