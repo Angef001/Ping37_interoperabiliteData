@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block content %}
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <title>Export FHIR</title>
+</head>
+<body>
+
+  <div class="page">
+    <h1 class="page-title">Exporter EDS</h1>
+    <p class="page-subtitle">Exporter EDS → FHIR au format ZIP.</p>
+
+ <div class="card">
+
+<form id="cfg" class="form">
+
+  <div class="field field-spaced">
+    <p class="description">Chemin du dossier EDS.</p>
+    <input class="input" name="EDS_DIR" type="text">
+  </div>
+
+  <div class="field field-spaced">
+    <p class="description">Dossier de sortie / temporaires FHIR.</p>
+    <input class="input" name="FHIR_OUTPUT_DIR" type="text">
+  </div>
+
+  <div class="field field-spaced">
+    <p class="description">Dossier export final .</p>
+    <input class="input" name="FHIR_EXPORT_DIR" type="text">
+  </div>
+
+  <div class="field field-spaced">
+    <p class="description">Stratégie utilisée pour le bundle.</p>
+    <select class="select" >
+      <option value=""></option>
+      <option value="patient">patient</option>
+      <option value="encounter">encounter</option>
+    </select>
+  </div>
+
+</form>
+
+
+
+  <div class="actions actions-spaced">
+    <button id="btn" type="button" class="btn btn-primary">
+      <span class="btn-text">Télécharger ZIP</span>
+      <span class="spinner" aria-hidden="true"></span>
+    </button>
+
+    <a class="btn btn-outline" href="/ui">Retour</a>
+  </div>
+
+  <pre id="msg" class="msg"></pre>
+</div>
+
+
+  <script>
+    function getPayload() {
+      const form = document.getElementById("cfg");
+      const data = new FormData(form);
+
+      const getOrNull = (key) => {
+        const v = (data.get(key) || "").trim();
+        return v === "" ? null : v;
+      };
+
+      return {
+        EDS_DIR: getOrNull("EDS_DIR"),
+        FHIR_OUTPUT_DIR: getOrNull("FHIR_OUTPUT_DIR"),
+        FHIR_EXPORT_DIR: getOrNull("FHIR_EXPORT_DIR"),
+        FHIR_BUNDLE_STRATEGY: getOrNull("FHIR_BUNDLE_STRATEGY"),
+      };
+    }
+
+    document.getElementById("btn").addEventListener("click", async () => {
+      const msg = document.getElementById("msg");
+      msg.textContent = "Export en cours...";
+
+      const payload = getPayload();
+
+      const res = await fetch("/export/edsan-to-fhir-zip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        msg.textContent = "Erreur: " + await res.text();
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "fhir_export.zip";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      URL.revokeObjectURL(url);
+      msg.textContent = "ZIP téléchargé ✅";
+    });
+  </script>
+
+</body>
+</html>
+{% endblock %}

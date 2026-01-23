@@ -183,3 +183,112 @@ details summary{
 }
 .shortcut .title{font-weight:900}
 .shortcut .icon{font-size:18px}
+
+/* Gros espacement entre les champs */
+.field-spaced {
+  margin-bottom: 32px;
+}
+
+/* Label (nom de la variable) */
+.label {
+  display: block;
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+
+/* Texte "(vide = valeur .env)" */
+.muted {
+  font-weight: 500;
+  color: #9ca3af;
+  font-size: 14px;
+  margin-left: 6px;
+}
+
+/* Description avant le champ */
+.description {
+  margin: 0 0 12px 0;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* Inputs/selects */
+.input,
+.select {
+  width: 100%;
+  max-width: 360px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+
+/* Spinner (caché par défaut) */
+.spinner{
+  display: none;
+  width: 16px;
+  height: 16px;
+  margin-left: 10px;
+  border-radius: 999px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: rgba(255,255,255,1);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin{
+  to { transform: rotate(360deg); }
+}
+
+/* Quand le bouton est en mode loading */
+.btn.is-loading{
+  opacity: 0.9;
+  cursor: not-allowed;
+}
+
+.btn.is-loading .spinner{
+  display: inline-block;
+}
+
+/* Optionnel : style du bouton désactivé */
+.btn:disabled{
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Grand espacement entre les champs */
+.field-spaced {
+  margin-bottom: 36px;
+}
+
+/* Label (nom de la variable) */
+.label {
+  display: block;
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+
+/* Description en gris */
+.description {
+  margin: 0 0 14px 0;
+  color: #9ca3af;   /* gris doux */
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* Champs */
+.input,
+.select {
+  width: 100%;
+  max-width: 360px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+/* Saut de ligne visuel après chaque input */
+.input,
+.select {
+  margin-bottom: 6px;
+}
