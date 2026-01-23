@@ -88,37 +88,6 @@ Astuce : Pour quitter le conteneur et revenir à ton terminal Windows/Linux, tap
 Le client utilise par défaut l'URL `http://localhost:8080/fhir`.
 
 
----
-
-Voici la section de ton fichier README.md rédigée en Markdown, prête à être copiée-collée :
-
-Markdown
-
-## 🐳 Utilisation avec Podman (Mode Interactif)
-
-Grâce à la conteneurisation, tu peux utiliser le client `chu-fhir` sans rien installer sur ton système hôte. La méthode la plus efficace consiste à entrer dans le conteneur pour utiliser l'outil en mode interactif :
-
-```bash
-# 1. Entrer dans le conteneur client
-podman exec -it ping37_interoperabilitedata_cli-client_1 bash
-
-# 2. Une fois à l'intérieur, utilise les commandes directement :
-chu-fhir info
-chu-fhir get-patient 1
-chu-fhir get-patients 1 2 3
-Astuce : Pour quitter le conteneur et revenir à ton terminal Windows/Linux, tape simplement exit.
-
-⚙️ Configuration
-Le client est conçu pour être flexible selon l'environnement d'exécution :
-
-Variables d'environnement : En environnement conteneurisé, le client utilise les variables définies dans le fichier podman-compose.yml :
-
-FHIR_URL : Configurée sur http://127.0.0.1:8080/fhir (adresse locale partagée en mode host).
-
-PYTHONPATH : Définie sur . pour permettre la résolution correcte du module src.
-
-Mode Réseau : L'utilisation du network_mode: host permet au client de communiquer avec l'entrepôt FHIR via l'interface de boucle locale, contournant les limitations DNS des conteneurs sous WSL.
-
 📁 Structure du code
 Le projet suit une structure de package Python standard :
 
