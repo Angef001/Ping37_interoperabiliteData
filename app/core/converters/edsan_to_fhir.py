@@ -1,22 +1,40 @@
-import base64
+from __future__ import annotations
+
 import json
+import base64
 import hashlib
-import pandas as pd
+import io, zipfile, tempfile
 from pathlib import Path
+from typing import Any
+
+import pandas as pd
+
 from app.utils.helpers import clean_id, format_fhir_date, write_last_run_report
 
 
+FHIR_XHTML_NS = ' xmlns="http://www.w3.org/1999/xhtml"'
+
+
+# Racine projet: .../Ping37_interoperabiliteData
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+# Defaults (sans env)
+DEFAULT_EDS_DIR = PROJECT_ROOT / "eds"
+DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "exports_eds_fhir"
+DEFAULT_MAPPING_PATH = Path(__file__).resolve().parent / "mapping.json"
+
+
 # =============================================================================
-# Utilitaires
+# Generic helpers
 # =============================================================================
 
 def encode_base64(text: str | None) -> str | None:
     if text is None:
         return None
-    return base64.b64encode(text.encode("utf-8")).decode("utf-8")
+    return base64.b64encode(str(text).encode("utf-8")).decode("utf-8")
 
 
-def is_missing(x) -> bool:
+def is_missing(x: Any) -> bool:
     return x is None or pd.isna(x)
 
 
@@ -25,171 +43,188 @@ def stable_id(*parts: object) -> str:
     return hashlib.sha1(s.encode("utf-8")).hexdigest()
 
 
-def normalize_fhir_id(raw) -> str:
+def normalize_fhir_id(raw: Any) -> str:
     if is_missing(raw):
         return ""
 
     s = str(raw)
-
-    # garder la partie après |
     if "|" in s:
         s = s.split("|")[-1]
 
     s = clean_id(s)
 
-    # si encore "sale", on ignore
     if any(c in s for c in ["?", "=", "&", "/"]):
         return ""
 
-    return s
+    return s[:64]
 
 
-def patient_ref(patid: str) -> str:
-    return f"Patient/{patid}"
-
-
-def encounter_ref(evtid: str) -> str:
-    return f"Encounter/{evtid}"
-
-
-def normalize_gender(patsex) -> str:
+def normalize_gender(patsex: Any) -> str:
     if is_missing(patsex):
         return "unknown"
-
     s = str(patsex).strip().upper()
-
     if s == "M":
         return "male"
     if s == "F":
         return "female"
-
     return "unknown"
 
 
-# =============================================================================
-# Builders FHIR
-# =============================================================================
-
-def build_patient(row: pd.Series) -> dict:
-    patid = normalize_fhir_id(row.get("PATID")) or str(row.get("PATID"))
-
-    return {
-        "resourceType": "Patient",
-        "id": patid,
-        "gender": normalize_gender(row.get("PATSEX")),
-        "birthDate": format_fhir_date(row.get("PATBD")),
-    }
-
-
-def build_encounter(row: pd.Series) -> dict:
-    evtid = normalize_fhir_id(row.get("EVTID")) or stable_id(
-        row.get("PATID"), row.get("DATENT"), row.get("DATSORT")
-    )
-
-    patid = normalize_fhir_id(row.get("PATID")) or str(row.get("PATID"))
-
-    return {
-        "resourceType": "Encounter",
-        "id": evtid,
-        "status": "finished",
-        "subject": {"reference": patient_ref(patid)},
-        "period": {
-            "start": format_fhir_date(row.get("DATENT")),
-            "end": format_fhir_date(row.get("DATSORT")),
-        },
-    }
-
-
-def build_observation(row: pd.Series) -> dict:
-    elt_clean = normalize_fhir_id(row.get("ELTID"))
-    obs_id = elt_clean if elt_clean else stable_id(
-        row.get("PATID"),
-        row.get("EVTID"),
-        row.get("LOINC"),
-        row.get("PRLVTDATE"),
-        row.get("RESULT"),
-        row.get("UNIT"),
-    )
-
-    patid = normalize_fhir_id(row.get("PATID")) or str(row.get("PATID"))
-    evtid = normalize_fhir_id(row.get("EVTID")) or str(row.get("EVTID"))
-
-    obs = {
-        "resourceType": "Observation",
-        "id": obs_id,
-        "status": "final",
-        "subject": {"reference": patient_ref(patid)},
-        "encounter": {"reference": encounter_ref(evtid)},
-        "effectiveDateTime": format_fhir_date(row.get("PRLVTDATE")),
-        "code": {
-            "coding": [{
-                "system": "http://loinc.org",
-                "code": row.get("LOINC"),
-                "display": row.get("RNAME"),
-            }],
-            "text": row.get("PNAME"),
-        },
-    }
-
-    result = row.get("RESULT")
-    unit = row.get("UNIT")
-
-    if not is_missing(result):
-        vq = {"value": float(result)}
-        if not is_missing(unit):
-            u = str(unit)
-            vq["unit"] = u
-            vq["system"] = "http://unitsofmeasure.org"
-            vq["code"] = u
-        obs["valueQuantity"] = vq
-
-    minref = row.get("MINREF")
-    maxref = row.get("MAXREF")
-    if not is_missing(minref) or not is_missing(maxref):
-        rr = {}
-        if not is_missing(minref):
-            rr["low"] = {"value": float(minref)}
-        if not is_missing(maxref):
-            rr["high"] = {"value": float(maxref)}
-        obs["referenceRange"] = [rr]
-
-    issued = row.get("VALIDADATE")
-    if not is_missing(issued):
-        obs["issued"] = format_fhir_date(issued)
-
-    return obs
-
-
-def build_document_reference(row: pd.Series) -> dict:
-    elt_clean = normalize_fhir_id(row.get("ELTID"))
-    doc_id = elt_clean if elt_clean else stable_id(
-        row.get("PATID"), row.get("EVTID"), row.get("RECDATE")
-    )
-
-    patid = normalize_fhir_id(row.get("PATID")) or str(row.get("PATID"))
-    evtid = normalize_fhir_id(row.get("EVTID")) or str(row.get("EVTID"))
-
-    attachment = {
-        "contentType": "text/plain",
-        "creation": format_fhir_date(row.get("RECDATE")),
-    }
-
-    txt = row.get("RECTXT")
-    if not is_missing(txt):
-        attachment["data"] = encode_base64(txt)
-
-    return {
-        "resourceType": "DocumentReference",
-        "id": doc_id,
-        "status": "current",
-        "subject": {"reference": patient_ref(patid)},
-        "context": {"encounter": [{"reference": encounter_ref(evtid)}]},
-        "content": [{"attachment": attachment}],
-    }
+def ensure_xhtml_div(text: str) -> str:
+    if text is None:
+        return text
+    t = str(text).strip()
+    if t.lower().startswith("<div"):
+        return t
+    return f"<div{FHIR_XHTML_NS}>{t}</div>"
 
 
 # =============================================================================
-# Bundle
+# FHIR reference helpers
+# =============================================================================
+
+def patient_ref(pid: str) -> str:
+    return f"Patient/{pid}"
+
+
+def encounter_ref(eid: str) -> str:
+    return f"Encounter/{eid}"
+
+
+def location_ref(lid: str) -> str:
+    return f"Location/{lid}"
+
+
+# =============================================================================
+# Dot-path setter (supports list indexes)
+# =============================================================================
+
+def _parse_path(path: str) -> list[Any]:
+    tokens: list[Any] = []
+    buf = ""
+    i = 0
+    while i < len(path):
+        c = path[i]
+        if c == ".":
+            if buf:
+                tokens.append(buf)
+                buf = ""
+            i += 1
+            continue
+        if c == "[":
+            if buf:
+                tokens.append(buf)
+                buf = ""
+            j = path.find("]", i)
+            tokens.append(int(path[i + 1:j]))
+            i = j + 1
+            continue
+        buf += c
+        i += 1
+    if buf:
+        tokens.append(buf)
+    return tokens
+
+
+def set_path(obj: dict, path: str, value: Any) -> None:
+    tokens = _parse_path(path)
+    cur = obj
+
+    for i, k in enumerate(tokens[:-1]):
+        nxt = tokens[i + 1]
+        if isinstance(k, int):
+            while len(cur) <= k:
+                cur.append({})
+            if cur[k] is None:
+                cur[k] = [] if isinstance(nxt, int) else {}
+            cur = cur[k]
+        else:
+            if k not in cur or cur[k] is None:
+                cur[k] = [] if isinstance(nxt, int) else {}
+            cur = cur[k]
+
+    last = tokens[-1]
+    if isinstance(last, int):
+        while len(cur) <= last:
+            cur.append(None)
+        cur[last] = value
+    else:
+        cur[last] = value
+
+
+# =============================================================================
+# Mapping-driven conversions
+# =============================================================================
+
+DATE_HINTS = (
+    "birthDate", "effectiveDateTime", "issued", "authoredOn",
+    "recordedDate", "performedDateTime",
+    "period.start", "period.end",
+    "content[0].attachment.creation", "date"
+)
+
+DEFAULTS_BY_RESOURCE = {
+    "Encounter": {"status": "finished"},
+    "Observation": {"status": "final"},
+    "MedicationRequest": {"status": "active", "intent": "order"},
+    "DiagnosticReport": {"status": "final"},
+    "DocumentReference": {"status": "current"},
+    "Composition": {"status": "final"},
+    "Procedure": {"status": "completed"},
+}
+
+
+def coerce_value(resource_type: str, target_path: str, source_col: str, raw: Any) -> Any:
+    if is_missing(raw):
+        return None
+
+    if resource_type == "Patient" and target_path == "gender":
+        return normalize_gender(raw)
+
+    if any(h in target_path for h in DATE_HINTS):
+        return format_fhir_date(raw)
+
+    if target_path.endswith(".data"):
+        return encode_base64(raw)
+
+    if resource_type == "Composition" and target_path in ("text.div", "section[0].text.div"):
+        return ensure_xhtml_div(raw)
+
+    if target_path.endswith(".reference"):
+        nid = normalize_fhir_id(raw) or stable_id(raw)
+        if source_col == "PATID":
+            return patient_ref(nid)
+        if source_col == "EVTID":
+            return encounter_ref(nid)
+        if source_col == "ELTID":
+            return location_ref(nid)
+        return raw
+
+    if target_path == "id":
+        return normalize_fhir_id(raw) or stable_id(raw)
+
+    return raw
+
+
+def build_resource(resource_type: str, row: pd.Series, cfg: dict) -> dict:
+    res = {"resourceType": resource_type}
+    res.update(DEFAULTS_BY_RESOURCE.get(resource_type, {}))
+
+    for src, tgt in cfg.get("columns", {}).items():
+        if not tgt:
+            continue
+        val = coerce_value(resource_type, tgt, src, row.get(src))
+        if val is not None:
+            set_path(res, tgt, val)
+
+    if not res.get("id"):
+        res["id"] = stable_id(resource_type, *row.values)
+
+    return res
+
+
+# =============================================================================
+# Bundle helpers
 # =============================================================================
 
 def build_bundle(resources: list[dict], bundle_id: str) -> dict:
@@ -201,70 +236,127 @@ def build_bundle(resources: list[dict], bundle_id: str) -> dict:
     }
 
 
+def get_patient_id(res: dict) -> str | None:
+    ref = res.get("subject", {}).get("reference")
+    if isinstance(ref, str) and ref.startswith("Patient/"):
+        return ref.split("/", 1)[1]
+    return None
+
+
+def get_encounter_id(res: dict) -> str | None:
+    if res.get("resourceType") == "Encounter":
+        return res.get("id")
+
+    ref = res.get("encounter", {}).get("reference")
+    if isinstance(ref, str) and ref.startswith("Encounter/"):
+        return ref.split("/", 1)[1]
+
+    ctx = res.get("context", {}).get("encounter")
+    if isinstance(ctx, dict):
+        ref = ctx.get("reference")
+        if isinstance(ref, str) and ref.startswith("Encounter/"):
+            return ref.split("/", 1)[1]
+
+    return None
+
+
 # =============================================================================
-# Export principal
+# Main export function (SANS ENV)
 # =============================================================================
 
 def export_eds_to_fhir(
-    eds_dir: str,
-    output_dir: str,
-    bundle_strategy: str = "patient",  # "patient" ou "encounter"
+    eds_dir: str | Path | None = None,
+    output_dir: str | Path | None = None,
+    mapping_path: str | Path | None = None,
+    bundle_strategy: str = "patient",
+    print_summary: bool = True,
 ) -> dict:
+    eds_dir = Path(eds_dir) if eds_dir is not None else DEFAULT_EDS_DIR
+    out_dir = Path(output_dir) if output_dir is not None else DEFAULT_OUTPUT_DIR
+    mapping_path = Path(mapping_path) if mapping_path is not None else DEFAULT_MAPPING_PATH
 
-    eds_dir = Path(eds_dir)
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    if not eds_dir.exists():
+        raise FileNotFoundError(f"EDS_DIR introuvable: {eds_dir}")
 
-    patient_df = pd.read_parquet(eds_dir / "patient.parquet")
-    mvt_df = pd.read_parquet(eds_dir / "mvt.parquet")
-    biol_df = pd.read_parquet(eds_dir / "biol.parquet")
-    doc_df = pd.read_parquet(eds_dir / "doceds.parquet")
+    if not mapping_path.exists():
+        raise FileNotFoundError(f"mapping.json introuvable: {mapping_path}")
 
-    patients = {row.PATID: build_patient(row) for _, row in patient_df.iterrows()}
-    encounters = {row.EVTID: build_encounter(row) for _, row in mvt_df.iterrows()}
-    observations = [build_observation(row) for _, row in biol_df.iterrows()]
-    documents = [build_document_reference(row) for _, row in doc_df.iterrows()]
+    out_dir.mkdir(parents=True, exist_ok=True)
 
-    bundles = {}
+    with open(mapping_path, "r", encoding="utf-8") as f:
+        mapping = json.load(f)
+
+    all_resources: list[dict] = []
+    by_type: dict[str, list[dict]] = {}
+
+    for rtype, cfg in mapping.items():
+        if rtype == "_schemas":
+            continue
+
+        table_name = cfg.get("table_name")
+        if not table_name:
+            continue
+
+        parquet = eds_dir / table_name
+        if not parquet.exists():
+            continue
+
+        df = pd.read_parquet(parquet)
+        built = [build_resource(rtype, row, cfg) for _, row in df.iterrows()]
+        by_type[rtype] = built
+        all_resources.extend(built)
+
+    bundles: dict[str, dict] = {}
 
     if bundle_strategy == "patient":
-        for pid, patient in patients.items():
-            pid_norm = patient["id"]
-            resources = [patient]
+        grouped: dict[str, list[dict]] = {}
+        for r in all_resources:
+            pid = get_patient_id(r)
+            if pid:
+                grouped.setdefault(pid, []).append(r)
 
-            resources += [e for e in encounters.values() if e["subject"]["reference"] == patient_ref(pid_norm)]
-            resources += [o for o in observations if o["subject"]["reference"] == patient_ref(pid_norm)]
-            resources += [d for d in documents if d["subject"]["reference"] == patient_ref(pid_norm)]
+        for pid, resources in grouped.items():
+            bid = f"patient-{pid}"
+            bundles[bid] = build_bundle(resources, bid)
 
-            bid = f"patient-{pid_norm}"
+    elif bundle_strategy == "encounter":
+        grouped: dict[str, list[dict]] = {}
+        for r in all_resources:
+            eid = get_encounter_id(r)
+            if eid:
+                grouped.setdefault(eid, []).append(r)
+
+        for eid, resources in grouped.items():
+            bid = f"encounter-{eid}"
             bundles[bid] = build_bundle(resources, bid)
 
     else:
-        for evtid, encounter in encounters.items():
-            pid_norm = encounter["subject"]["reference"].split("/")[-1]
-            evtid_norm = encounter["id"]
+        raise ValueError('bundle_strategy doit être "patient" ou "encounter"')
 
-            resources = [patients[pid_norm], encounter]
-            resources += [o for o in observations if o["encounter"]["reference"] == encounter_ref(evtid_norm)]
-            resources += [
-                d for d in documents
-                if encounter_ref(evtid_norm) in [e["reference"] for e in d["context"]["encounter"]]
-            ]
-
-            bid = f"encounter-{evtid_norm}"
-            bundles[bid] = build_bundle(resources, bid)
-
-    for bundle in bundles.values():
-        with open(output_dir / f"{bundle['id']}.json", "w", encoding="utf-8") as f:
+    # Write bundle files
+    for bid, bundle in bundles.items():
+        with open(out_dir / f"{bid}.json", "w", encoding="utf-8") as f:
             json.dump(bundle, f, indent=2, ensure_ascii=False)
 
     summary = {
         "eds_dir": str(eds_dir),
-        "output_dir": str(output_dir),
+        "output_dir": str(out_dir),
+        "mapping": str(mapping_path),
         "bundle_strategy": bundle_strategy,
+        "resources_per_type": {k: len(v) for k, v in by_type.items()},
         "bundles_generated": len(bundles),
     }
 
-    write_last_run_report(summary, str(output_dir), filename="last_run.json")
+    if print_summary:
+        print(json.dumps(summary, indent=2, ensure_ascii=False))
 
+    write_last_run_report(summary, str(out_dir), "last_run.json")
     return summary
+
+
+# =============================================================================
+# Script entry point
+# =============================================================================
+
+if __name__ == "__main__":
+    export_eds_to_fhir()
