@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request, UploadFile, File
-from Ping37_interoperabiliteData.app.core.converters import edsan_to_fhir_1
+from app.core.converters import edsan_to_fhir_1
 from app.core.models.edsan_models import PmsiModel, PatientModel
 from app.core.converters import fhir_to_edsan
 from typing import List
