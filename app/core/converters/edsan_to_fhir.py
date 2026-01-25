@@ -485,6 +485,39 @@ def ensure_locations_in_transaction_bundle(bundle: dict) -> dict:
     return bundle
 
 
+def export_eds_to_fhir_zip(
+    exports_dir: str,
+    zip_path: str | None = None
+) -> str:
+    """
+    Zippe le dossier d'exports FHIR et retourne le chemin du zip.
+
+    :param exports_dir: dossier contenant les fichiers FHIR à zipper
+    :param zip_path: chemin du zip final (optionnel)
+    :return: chemin du fichier zip créé
+    """
+
+    exports_dir = Path(exports_dir)
+
+    if not exports_dir.exists():
+        raise FileNotFoundError(f"Dossier introuvable : {exports_dir}")
+
+    if zip_path is None:
+        zip_path = exports_dir.with_suffix(".zip")
+    else:
+        zip_path = Path(zip_path)
+
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+        for file in exports_dir.rglob("*"):
+            if file.is_file():
+                zipf.write(
+                    file,
+                    arcname=file.relative_to(exports_dir)
+                )
+
+    return str(zip_path)
+
+
 def export_eds_to_fhir(
     eds_dir: str | Path | None = None,
     output_dir: str | Path | None = None,
