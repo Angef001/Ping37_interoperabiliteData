@@ -15,3 +15,6 @@ dependencies = [
 [project.scripts]
 # Cette commande crée la commande 'chu-fhir' dans le terminal
 chu-fhir = "src.main:app" 
+
+[tool.setuptools]
+packages = ["src"]

@@ -1,0 +1,10 @@
+README.md
+pyproject.toml
+interoperabilite_cli.egg-info/PKG-INFO
+interoperabilite_cli.egg-info/SOURCES.txt
+interoperabilite_cli.egg-info/dependency_links.txt
+interoperabilite_cli.egg-info/entry_points.txt
+interoperabilite_cli.egg-info/requires.txt
+interoperabilite_cli.egg-info/top_level.txt
+src/__init__.py
+src/main.py
