@@ -21,7 +21,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copier le reste du code source
-COPY . .
+COPY app ./app
 
 # Créer le dossiers de stockage des fichiers edsan au format parquet
 RUN mkdir -p eds 
