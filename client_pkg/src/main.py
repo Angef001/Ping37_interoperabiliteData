@@ -133,7 +133,7 @@ def warehouse_convert(
     """
     url = f"{CONVERTER_API_URL}/convert/fhir-warehouse-to-edsan"
     payload = {"patient_limit": patient_limit, "page_size": page_size}
-    r = requests.post(url, json=payload)
+    r = requests.post(url, json=payload, timeout=(10, 900))  # 10s connect, 15min read
     _raise_if_error(r, "Conversion entrepôt -> EDS")
 
     console.print("[bold green]✅ Conversion entrepôt terminée[/bold green]")
@@ -165,7 +165,7 @@ def warehouse_convert_patient(
 def eds_tables():
     """Liste les tables EDS disponibles."""
     url = f"{CONVERTER_API_URL}/eds/tables"
-    r = requests.get(url)
+    r = requests.get(url, timeout=15)
     _raise_if_error(r, "Liste tables EDS")
 
     tables = r.json()
@@ -214,7 +214,8 @@ def eds_preview(
 def stats():
     """Affiche les stats EDS."""
     url = f"{CONVERTER_API_URL}/stats"
-    r = requests.get(url)
+    r = requests.get(url, timeout=15)
+
     _raise_if_error(r, "Lecture stats")
 
     data = r.json()

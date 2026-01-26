@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request, UploadFile, File
-from Ping37_interoperabiliteData.app.core.converters import edsan_to_fhir_1
+from app.core.converters import edsan_to_fhir_1
+from collections import Counter
+
 from app.core.models.edsan_models import PmsiModel, PatientModel
 from app.core.converters import fhir_to_edsan
 from typing import List
@@ -158,6 +160,9 @@ async def import_fhir_file(file: UploadFile = File(...)):
         return {"status": "success", "data": result}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Erreur import fichier FHIR : {str(e)}")
+    
+
+
 @router.get("/export/eds-zip", tags=["Export"])
 async def export_eds_zip():
     """
@@ -270,6 +275,27 @@ def _fetch_bundle_all_pages(url: str, params: dict | None = None, timeout: int =
         "entry": all_entries,
     }
 
+def summarize_bundle(bundle: dict) -> dict:
+    """
+    Retourne:
+      - entries_total: nombre total d'entry dans le bundle
+      - resources_per_type: dict {resourceType: count}
+    """
+    entries = bundle.get("entry", []) or []
+    c = Counter()
+
+    for e in entries:
+        res = (e.get("resource") or {})
+        rt = res.get("resourceType")
+        if rt:
+            c[rt] += 1
+
+    return {
+        "entries_total": len(entries),
+        "resources_per_type": dict(c),
+    }
+
+
 def _collect_patient_ids(limit: int, page_size: int, timeout: int = 60) -> list[str]:
     """
     Récupère les IDs Patient depuis l'entrepôt en paginant.
@@ -371,11 +397,15 @@ async def convert_fhir_warehouse_to_edsan(payload: dict | None = None):
             # IMPORTANT: on évite d’écrire last_run à chaque patient
             _ = fhir_to_edsan.process_bundle(bundle, write_report=False)
 
+            summary = summarize_bundle(bundle)
+
             per_patient.append({
                 "patient_id": pid,
                 "status": "success",
-                "entries": len(bundle.get("entry", []) or []),
+                "entries_total": summary["entries_total"],        # total entries
+                "resources_per_type": summary["resources_per_type"],  # détail par type
             })
+
             ok += 1
         except Exception as e:
             per_patient.append({
@@ -428,6 +458,8 @@ async def convert_one_patient_from_warehouse(payload: dict):
 
         _ = fhir_to_edsan.process_bundle(bundle, write_report=False)
 
+        summary = summarize_bundle(bundle)
+
         report = {
             "run_id": run_id,
             "mode": "warehouse_one",
@@ -435,7 +467,8 @@ async def convert_one_patient_from_warehouse(payload: dict):
             "started_at": started_at,
             "ended_at": datetime.now().isoformat(),
             "patient_id": pid,
-            "entries": len(bundle.get("entry", []) or []),
+            "entries_total": summary["entries_total"],
+            "resources_per_type": summary["resources_per_type"],
         }
 
         from app.utils.helpers import write_last_run_report
