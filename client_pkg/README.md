@@ -6,10 +6,7 @@ Ce package Python fournit une interface en ligne de commande (CLI) robuste pour 
 
 Avant d'installer le client, assurez-vous d'avoir les éléments suivants sur votre machine :
 
-* 
-**Python 3.10 3.11 ou 3.12** 
-
-
+* **Python 3.10 3.11 ou 3.12** 
 * **Accès réseau** aux services suivants :
 * Serveur FHIR (HAPI) : par défaut sur `http://localhost:8080/fhir`
 * API Converter (FastAPI) : par défaut sur `http://localhost:8000/api/v1`
