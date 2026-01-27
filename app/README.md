@@ -5,7 +5,6 @@ Cette API FastAPI est le moteur de transformation du projet PING. Elle assure la
 ## 📑 Sommaire
 
 * Installation & Lancement
-* Développement Local (VENV)
 * Catalogue Complet des Endpoints
 * Flux de Conversion
 * Configuration (Mapping)
