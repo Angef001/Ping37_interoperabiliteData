@@ -2,47 +2,43 @@
 
 Ce module contient l'infrastructure de l'entrepôt de données, basé sur le **HAPI FHIR JPA Server Starter**. Il sert de serveur central pour stocker et servir les ressources cliniques du projet PING au format standard FHIR.
 
-## 📋 Architecture
+## 🛠️ Prérequis Système (Installation Linux)
 
-* **Moteur** : HAPI FHIR (Java).
-* **Framework** : Spring Boot.
-* **Base de données** : H2 (embarquée par défaut pour le développement).
-* **Interface Web** : Overlay de test intégré pour explorer les ressources.
+Avant de commencer, vous devez installer les outils nécessaires selon votre mode de lancement préféré.
 
----
+### 1. Pour le lancement avec Podman (Recommandé)
 
-## 🚀 Lancement Local (Sans Conteneur)
+Podman est un moteur de conteneurisation sans démon, compatible avec Docker.
 
-### Prérequis
-
-* **Java JDK 17 ou 21** installé sur ton système.
-* **Maven** installé (`sudo apt install maven` sur Linux).
-
-### Étapes
-
-1. **Entrer dans le dossier** :
 ```bash
-cd entrepot_fhir/hapi-fhir-jpaserver-starter-master
+# Mise à jour des dépôts
+sudo apt update
+
+# Installation de Podman et Podman-compose
+sudo apt install -y podman podman-compose
 
 ```
 
+### 2. Pour le lancement natif (Maven)
 
-2. **Lancer le serveur** :
+Si vous préférez compiler et lancer le serveur directement sur votre hôte.
+
 ```bash
-mvn spring-boot:run
+# Installation du JDK (Java Development Kit) 17 ou 21
+sudo apt install -y openjdk-17-jdk
+
+# Installation de Maven
+sudo apt install -y maven
 
 ```
 
-
-*(Note : La première exécution téléchargera toutes les dépendances Java, cela peut prendre quelques minutes)*.
-3. **Accès** :
-Ouvre ton navigateur sur [http://localhost:8080/fhir/].
-
 ---
 
-## 🐳 Lancement avec Podman (Recommandé)
+## 🚀 Lancement du Serveur
 
-Le projet inclut un `Dockerfile` officiel optimisé pour la sécurité et la performance.
+### Option A : Avec Podman (Recommandé)
+
+Le projet utilise un `Dockerfile` optimisé pour la sécurité (mode "non-root").
 
 ```bash
 # Depuis la racine du projet PING
@@ -50,29 +46,26 @@ podman-compose up -d fhir-server
 
 ```
 
-### Avantages de la version conteneurisée :
+* **Isolation** : Aucune installation de Java ou Maven n'est requise sur votre machine.
+* **Persistance** : Les données sont conservées dans le volume `fhir-data`.
 
-* **Isolation** : Pas besoin d'installer Java ou Maven sur ta machine.
-* **Sécurité** : Exécution en mode "non-root" (UID 65532).
-* **Persistance** : Les données sont sauvegardées dans un volume nommé `fhir-data`.
+### Option B : Lancement Local (Développement)
 
----
+```bash
+# 1. Entrer dans le dossier du serveur
+cd entrepot_fhir/hapi-fhir-jpaserver-starter-master
 
-## ⚙️ Configuration
+# 2. Lancer le serveur via Maven
+mvn spring-boot:run
 
-La configuration principale se trouve dans le fichier :
-`src/main/resources/application.yaml`.
+```
 
-Tu peux y modifier :
-
-* Le port d'écoute (par défaut 8080).
-* Les paramètres de la base de données.
-* Les options de validation FHIR.
+*Note : Le premier lancement peut être long en raison du téléchargement des dépendances Java.*
 
 ---
 
-## 📁 Structure du Projet
+## ⚙️ Configuration et Accès
 
-* `pom.xml` : Gestionnaire de dépendances Maven et plugins de build.
-* `Dockerfile` : Instructions de build multi-stage (Build avec Maven, Run avec JRE).
-* `src/main/resources/` : Fichiers de configuration et propriétés du serveur.
+* **Accès Web** : Le serveur est accessible sur [http://localhost:8080/fhir/].
+* **Fichier de configuration** : La personnalisation (ports, base de données, validation) s'effectue dans `src/main/resources/application.yaml`.
+* **Base de données** : Par défaut, le serveur utilise une base **H2** embarquée pour faciliter le développement.
