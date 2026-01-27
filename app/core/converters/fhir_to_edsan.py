@@ -5,7 +5,7 @@ from pathlib import Path
 
 from app.core.config.merge_keys import MERGE_KEYS
 from app.core.converters.eds_merge import merge_run_into_eds
-from app.core.converters.build_eds_with_fhir import EDS_DIR as DEFAULT_EDS_DIR, build_eds
+from app.core.converters.build_eds_with_fhir import EDS_DIR as DEFAULT_EDS_DIR, build_eds, REPORTS_DIR
 from app.utils.helpers import write_last_run_report
 
 
@@ -58,7 +58,9 @@ def process_bundle(
     bundle: dict,
     eds_dir: str | None = None,
     mapping_file: str | None = None,
+    write_report: bool = True,
 ) -> dict:
+
     """
     Phase 3 (FHIR -> EDS) : traite un bundle FHIR (dict),
     génère les parquets dans un run_dir temporaire,
@@ -96,17 +98,17 @@ def process_bundle(
             result["merged_into"] = target_eds_dir
 
             # 4) sauvegarde report (comme process_dir)
-            _write_last_run(result, target_eds_dir)
+            _write_last_run(result, REPORTS_DIR)
 
             return result
         
-def _write_last_run(result: dict, target_eds_dir: str) -> None:
+def _write_last_run(result: dict, REPORTS_DIR: str) -> None:
     """Compat: wrapper historique.
 
     L'écriture du report a été centralisée dans app.utils.helpers.write_last_run_report.
     On garde ce wrapper pour ne pas casser d'éventuels imports.
     """
-    write_last_run_report(result, target_eds_dir)
+    write_last_run_report(result, REPORTS_DIR)
 
 
 

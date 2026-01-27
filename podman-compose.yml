@@ -1,16 +1,15 @@
+version: "3.8"
+
 services:
-  # 1. L'entrepôt FHIR
   fhir-server:
     image: fhir-server:latest
     network_mode: host
     build:
       context: ./entrepot_fhir/hapi-fhir-jpaserver-starter-master
       dockerfile: Dockerfile
-    # Note: On a enlevé "ports" car en mode host, c'est automatique.
     volumes:
-      - fhir-data:/usr/local/tomcat/data/hapi:Z 
+      - fhir-data:/usr/local/tomcat/data/hapi:Z
 
-  # 2. Ton API de conversion
   api-converter:
     image: api-converter:latest
     network_mode: host
@@ -18,19 +17,18 @@ services:
       context: .
       dockerfile: app/Dockerfile
     environment:
-      # On remplace fhir-server par 127.0.0.1
       - FHIR_URL=http://127.0.0.1:8080/fhir
     depends_on:
       - fhir-server
 
-  # 3. Le client CLI Python
   cli-client:
     image: cli-client:latest
     network_mode: host
-    build: ./client_pkg
+    build:
+      context: ./client_pkg
+      dockerfile: Dockerfile
     environment:
       - FHIR_URL=http://127.0.0.1:8080/fhir
-      #ajout du PYTHONPATH pour éviter l'erreur "src"
       - PYTHONPATH=.
     depends_on:
       - fhir-server
