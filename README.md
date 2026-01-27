@@ -10,6 +10,8 @@ Le projet est divisé en trois composants majeurs qui communiquent au sein d'un 
 2. **L'API de Conversion (Transformer)** : Le "cerveau" du projet. Elle contient la logique métier (mapping, nettoyage, fusion de données) pour transformer le FHIR en Parquet et inversement.
 3. **Le Client CLI (chu-fhir)** : L'interface utilisateur permettant de piloter les conversions, de consulter les statistiques et d'interroger les ressources depuis un terminal.
 
+
+
 **Flux de données type :**
 
 * **FHIR → EDS** : L'API extrait les ressources du serveur HAPI, les normalise (via `helpers.py`), les transforme en tables (via `fhir_to_edsan.py`) et les fusionne dans le stockage local (via `eds_merge.py`).
@@ -39,7 +41,7 @@ Pour une compréhension optimale, il est recommandé de lire les README dans l'o
 Depuis la racine du projet, lancez l'intégralité de la pile :
 
 ```bash
-podman-compose up -d
+podman-compose up --build -d
 
 ```
 
