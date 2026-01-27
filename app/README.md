@@ -98,8 +98,6 @@ Accès : L'interface Swagger sera disponible sur http://localhost:8000/docs
 
 * **`POST /api/v1/convert/fhir-warehouse-to-edsan`** : Déclenche l'ETL complet depuis l'entrepôt HAPI FHIR vers les fichiers Parquet. Supporte la pagination et une limite de patients via le payload.
 * **`POST /api/v1/convert/fhir-warehouse-patient-to-edsan`** : Convertit un patient spécifique de l'entrepôt via son `patient_id`.
-* **`POST /api/v1/convert/fhir-dir-to-edsan`** : Scanne un dossier local de bundles FHIR pour les convertir en EDS.
-* **`POST /api/v1/import/fhir-file`** : Upload manuel d'un fichier JSON Bundle FHIR pour une conversion immédiate.
 
 ### 📤 Export & Envoi (EDS → FHIR)
 
