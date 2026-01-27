@@ -29,6 +29,9 @@ podman ps
 # 3. Consulter les logs en temps réel
 podman logs -f api-converter
 
+# 4. Remplir l'entrepôt fhir 
+podman exec -it ping37_interoperabilitedata_api-converter_1 python3 -m app.core.converters.edsan_to_fhir
+
 ```
 
 *L'API est accessible par défaut sur `http://localhost:8000`.*
@@ -64,6 +67,29 @@ pip install -r requirements.txt
 
 ```
 
+### 4. Chargement initial de l'entrepôt FHIR
+Avant de lancer l'API, vous devez peupler votre serveur FHIR (HAPI) avec les données EDS initiales au format Parquet. Assurez-vous que votre serveur FHIR est accessible (par défaut sur le port 8080).
+
+Exécutez la commande de conversion depuis la racine du projet :
+
+```bash
+python3 -m app.core.converters.edsan_to_fhir
+
+```
+
+Cette commande lit les fichiers du dossier eds/, les transforme en ressources FHIR et les injecte dans l'entrepôt via des requêtes HTTP.
+
+
+### 5. Lancement de l'API de conversion
+Une fois les données chargées, vous pouvez démarrer le serveur FastAPI en utilisant Uvicorn :
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+```
+--reload : Permet de redémarrer automatiquement le serveur à chaque modification du code source.
+
+Accès : L'interface Swagger sera disponible sur http://localhost:8000/docs
 ---
 
 ## 📡 Catalogue Complet des Endpoints
