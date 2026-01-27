@@ -155,20 +155,13 @@ chu-fhir download-run <nom_du_zip> --out ./ma_destination/
 ```
 
 
-
 ---
 
 ## 📁 Structure du Projet
 
 * `src/main.py` : Logique principale utilisant **Typer** pour le CLI et **Rich** pour les affichages en tableau.
-* 
-`pyproject.toml` : Configuration du package et définition du point d'entrée `chu-fhir`.
-
-
-* 
-`Dockerfile` : Image basée sur `python:3.12-slim` pour un déploiement léger.
-
-
+* `pyproject.toml` : Configuration du package et définition du point d'entrée `chu-fhir`.
+* `Dockerfile` : Image basée sur `python:3.12-slim` pour un déploiement léger.
 
 ---
 
