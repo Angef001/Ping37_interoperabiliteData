@@ -1,10 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request, UploadFile, File
 from app.core.converters import edsan_to_fhir_1
-<<<<<<< HEAD
-=======
 from collections import Counter
 
->>>>>>> f6b9c3fd1ec4073542d00a328907424560b70ef7
 from app.core.models.edsan_models import PmsiModel, PatientModel
 from app.core.converters import fhir_to_edsan
 from typing import List
