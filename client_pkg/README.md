@@ -163,7 +163,6 @@ chu-fhir download-run <nom_du_zip> --out ./ma_destination/
 
 ```
 
-
 ---
 
 ## 📁 Structure du Projet
@@ -171,3 +170,30 @@ chu-fhir download-run <nom_du_zip> --out ./ma_destination/
 * `src/main.py` : Logique principale utilisant **Typer** pour le CLI et **Rich** pour les affichages en tableau.
 * `pyproject.toml` : Configuration du package et définition du point d'entrée `chu-fhir`.
 * `Dockerfile` : Image basée sur `python:3.12-slim` pour un déploiement léger.
+ 
+
+## Commande pour tester la conversion fhir-eds
+
+* Convertir N patient(N peut etre egale à 50, 3, 10, etc selon votre envie)
+    'chu-fhir warehouse-convert --patient-limit N'
+
+* Convertir tout l'entrepot
+    'chu-fhir warehouse-convert ou chu-fhir warehouse-convert --patient-limit 0'
+
+* Convertir un patient 
+    'chu-fhir warehouse-convert-patient --id <id>'
+
+* Afficher l'historique
+    'chu-fhir runs'
+
+
+* Telecharger un fichier last_run
+    'chu-fhir download-run  <nom du fichier>'
+
+
+* Afficher les stats de l'eds
+    'chu-fhir stats'
+
+
+* Afficher les tables de l'eds
+    'chu-fhir eds-tables'

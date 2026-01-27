@@ -9,6 +9,8 @@ from app.utils.helpers import (
     load_json_flexible,
     _compute_expected_columns,
     _coalesce_from_path,
+    _coalesce_from,
+
 )
 
 # =============================================================================
