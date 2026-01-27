@@ -18,6 +18,8 @@ services:
       dockerfile: app/Dockerfile
     environment:
       - FHIR_URL=http://127.0.0.1:8080/fhir
+    volumes:
+      - ./eds:/app/eds:Z
     depends_on:
       - fhir-server
 
