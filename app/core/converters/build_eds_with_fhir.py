@@ -2,14 +2,13 @@ import json
 import glob
 import os
 import polars as pl
-
 from app.utils.helpers import (
     compute_age,
     enforce_schema,
     get_value_from_path,
     load_json_flexible,
     _compute_expected_columns,
-    _coalesce_from,
+    _coalesce_from_path,
 )
 
 # =============================================================================

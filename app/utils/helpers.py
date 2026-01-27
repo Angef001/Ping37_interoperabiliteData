@@ -15,10 +15,12 @@ import re
 from datetime import date, datetime
 from pathlib import Path
 from typing import Optional, Union
-
+import requests
+from dotenv import load_dotenv
+import os
 import polars as pl
 
-
+load_dotenv()  # charge le .env
 # -----------------------------------------------------------------------------
 # FHIR / generic text helpers
 # -----------------------------------------------------------------------------
@@ -242,7 +244,7 @@ def load_json_flexible(path: str) -> dict:
 
 
 def _compute_expected_columns(mapping_rules: dict, schemas: dict | None) -> dict:
-    """Construit les colonnes attendues par table (ordre stable).
+    """Construit les colonnes attendues par table (ordre stable)..
     
     Sert à préparer le schéma pour Polars afin d'éviter les erreurs de colonnes manquantes.
     """
@@ -330,3 +332,113 @@ def write_last_run_report(result: dict, target_eds_dir: str, filename: str = "la
     except Exception:
         # on ne casse pas la conversion si l’écriture échoue
         pass
+
+
+
+
+#api helpers    eds to fhir 
+FHIR_SERVER_URL = os.getenv("FHIR_SERVER_URL", "http://localhost:8080/fhir")
+FHIR_ACCEPT_HEADERS = {"Accept": "application/fhir+json"}
+
+def _fetch_bundle_all_pages(url: str, params: dict | None = None, timeout: int = 60) -> dict:
+    """
+    Récupère un Bundle FHIR (searchset / $everything) en suivant la pagination (link[next]).
+    Retourne un Bundle unique avec toutes les 'entry' concaténées.
+    """
+    r = requests.get(url, params=params, headers=FHIR_ACCEPT_HEADERS, timeout=timeout)
+    r.raise_for_status()
+    bundle = r.json()
+
+    all_entries = []
+    if bundle.get("entry"):
+        all_entries.extend(bundle["entry"])
+
+    while True:
+        next_url = None
+        for link in bundle.get("link", []) or []:
+            if link.get("relation") == "next":
+                next_url = link.get("url")
+                break
+
+        if not next_url:
+            break
+
+        r = requests.get(next_url, headers=FHIR_ACCEPT_HEADERS, timeout=timeout)
+        r.raise_for_status()
+        bundle = r.json()
+        if bundle.get("entry"):
+            all_entries.extend(bundle["entry"])
+
+    # On renvoie un bundle "collection" simple (compatible avec votre pipeline : entry[].resource)
+    return {
+        "resourceType": "Bundle",
+        "type": "collection",
+        "entry": all_entries,
+    }
+
+def _collect_patient_ids(limit: int, page_size: int, timeout: int = 60) -> list[str]:
+    """
+    Récupère les IDs Patient depuis l'entrepôt en paginant.
+    - limit > 0 : s'arrête dès qu'on a 'limit' IDs
+    - limit == 0 : récupère tous les patients
+    """
+    url = f"{FHIR_SERVER_URL}/Patient"
+    params = {"_count": page_size}
+
+    ids: list[str] = []
+
+    r = requests.get(url, params=params, headers=FHIR_ACCEPT_HEADERS, timeout=timeout)
+    r.raise_for_status()
+    bundle = r.json()
+
+    while True:
+        # 1) ajouter les IDs de la page courante
+        for entry in bundle.get("entry", []) or []:
+            res = entry.get("resource", {})
+            if res.get("resourceType") == "Patient":
+                pid = res.get("id")
+                if pid:
+                    ids.append(pid)
+                    # stop dès qu'on a assez
+                    if limit > 0 and len(ids) >= limit:
+                        return ids
+
+        # 2) trouver la page suivante
+        next_url = None
+        for link in bundle.get("link", []) or []:
+            if link.get("relation") == "next":
+                next_url = link.get("url")
+                break
+
+        if not next_url:
+            break
+
+        r = requests.get(next_url, headers=FHIR_ACCEPT_HEADERS, timeout=timeout)
+        r.raise_for_status()
+        bundle = r.json()
+
+    return ids
+
+
+def _zip_folder(folder: Path, zip_path: Path) -> None:
+    zip_path.parent.mkdir(parents=True, exist_ok=True)
+    with ZipFile(zip_path, "w", compression=ZIP_DEFLATED) as zf:
+        for p in folder.rglob("*"):
+            if p.is_file():
+                zf.write(p, arcname=p.relative_to(folder))
+
+
+
+
+def _coalesce_from_path(df: pl.DataFrame, target: str, src: str) -> pl.DataFrame:
+    """Remplit target avec src quand target est null, puis supprime src.
+    
+    Équivalent du COALESCE(target, src) en SQL.
+    Utilisé pour consolider des données provenant de deux champs différents.
+    """
+    if target in df.columns and src in df.columns:
+        # pl.coalesce prend la première valeur non-nulle de la liste
+        df = df.with_columns(pl.coalesce([pl.col(target), pl.col(src)]).alias(target))
+        # On supprime la colonne source intermédiaire pour nettoyer
+        df = df.drop(src)
+    return df

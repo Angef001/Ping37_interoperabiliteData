@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request, UploadFile, File
+from app.core.converters.edsan_to_fhir import export_eds_to_fhir
 from app.core.converters import edsan_to_fhir_1
 from collections import Counter
-
 from app.core.models.edsan_models import PmsiModel, PatientModel
 from app.core.converters import fhir_to_edsan
 from typing import List
@@ -19,77 +19,14 @@ from dotenv import load_dotenv
 import os
 import requests
 from datetime import datetime
+from zipfile import ZipFile, ZIP_DEFLATED
+
+import requests
+from datetime import datetime
 
 
-load_dotenv()  # charge le .env
+load_dotenv()  # charge les variables du .env
 router = APIRouter()
-
-
-
-# --- ENDPOINT : EDS -> FHIR ---
-@router.post("/export/edsan-to-fhir-zip", tags=["Export"])
-async def export_edsan_to_fhir_zip():
-    # Read the bundle strategy from environment variables
-    # Determines how FHIR Bundles are built (by patient or by encounter)
-    bundle_strategy = os.getenv("FHIR_BUNDLE_STRATEGY", "patient")
-
-    # Validate the strategy to avoid invalid conversion behavior
-    if bundle_strategy not in ("patient", "encounter"):
-        raise HTTPException(
-            status_code=500,
-            detail="FHIR_BUNDLE_STRATEGY must be 'patient' or 'encounter'"
-        )
-
-    # Determine the project root directory based on the EDS directory
-    project_root = Path(EDS_DIR).resolve().parent
-
-    # Define the FHIR output directory (from .env or default)
-    out_dir = Path(os.getenv("FHIR_OUTPUT_DIR", "fhir_output"))
-
-    # If the output path is relative, attach it to the project root
-    if not out_dir.is_absolute():
-        out_dir = project_root / out_dir
-
-    # Remove any previous export to ensure a clean output
-    if out_dir.exists():
-        shutil.rmtree(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    # Convert EDS parquet data into FHIR JSON bundles
-    try:
-        edsan_to_fhir_1.export_eds_to_fhir(
-            eds_dir=EDS_DIR,
-            output_dir=str(out_dir),
-            bundle_strategy=bundle_strategy,
-        )
-    except Exception as e:
-        # Return an HTTP 500 error if the conversion fails
-        raise HTTPException(status_code=500, detail=str(e))
-
-    # Create a ZIP archive containing all generated FHIR JSON files
-    zip_path = out_dir / "fhir_export.zip"
-    if zip_path.exists():
-        zip_path.unlink()
-
-    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as z:
-        for p in out_dir.glob("*.json"):
-            z.write(p, arcname=p.name)
-
-    # Return the ZIP file as a downloadable response
-    return FileResponse(
-        path=str(zip_path),
-        filename="fhir_export.zip",
-        media_type="application/zip",
-    )
-
-
-@router.get("/ui/export/fhir", response_class=HTMLResponse)
-async def ui_export_fhir(request: Request):
-    # Serve a simple HTML interface to trigger or visualize the FHIR export
-    return tempfile.template.TemplateResponse("export_fhir.html", {"request": request})
-
-
-
 
 
 # --- ENDPOINT : FHIR (dossier) -> EDS ---
