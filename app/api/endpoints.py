@@ -1,11 +1,12 @@
 from fastapi import APIRouter, HTTPException, Request, UploadFile, File
-from Ping37_interoperabiliteData.app.core.converters import edsan_to_fhir_1
+from app.core.converters.edsan_to_fhir import export_eds_to_fhir
 from app.core.models.edsan_models import PmsiModel, PatientModel
 from app.core.converters import fhir_to_edsan
 from typing import List
 import os
 import polars as pl
-from app.core.converters.build_eds_with_fhir import EDS_DIR
+from app.core.converters.build_eds_with_fhir import EDS_DIR, REPORTS_DIR
+from app.utils.helpers import _fetch_bundle_all_pages, _collect_patient_ids, _zip_folder
 import json
 from fastapi.responses import FileResponse, HTMLResponse
 import zipfile
@@ -14,77 +15,14 @@ from pathlib import Path
 import shutil
 from dotenv import load_dotenv
 import os
+import requests
+from datetime import datetime
+from zipfile import ZipFile, ZIP_DEFLATED
 
 
-load_dotenv()  # charge le .env
+
+load_dotenv()  # charge les variables du .env
 router = APIRouter()
-
-
-
-# --- ENDPOINT : EDS -> FHIR ---
-@router.post("/export/edsan-to-fhir-zip", tags=["Export"])
-async def export_edsan_to_fhir_zip():
-    # Read the bundle strategy from environment variables
-    # Determines how FHIR Bundles are built (by patient or by encounter)
-    bundle_strategy = os.getenv("FHIR_BUNDLE_STRATEGY", "patient")
-
-    # Validate the strategy to avoid invalid conversion behavior
-    if bundle_strategy not in ("patient", "encounter"):
-        raise HTTPException(
-            status_code=500,
-            detail="FHIR_BUNDLE_STRATEGY must be 'patient' or 'encounter'"
-        )
-
-    # Determine the project root directory based on the EDS directory
-    project_root = Path(EDS_DIR).resolve().parent
-
-    # Define the FHIR output directory (from .env or default)
-    out_dir = Path(os.getenv("FHIR_OUTPUT_DIR", "fhir_output"))
-
-    # If the output path is relative, attach it to the project root
-    if not out_dir.is_absolute():
-        out_dir = project_root / out_dir
-
-    # Remove any previous export to ensure a clean output
-    if out_dir.exists():
-        shutil.rmtree(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    # Convert EDS parquet data into FHIR JSON bundles
-    try:
-        edsan_to_fhir_1.export_eds_to_fhir(
-            eds_dir=EDS_DIR,
-            output_dir=str(out_dir),
-            bundle_strategy=bundle_strategy,
-        )
-    except Exception as e:
-        # Return an HTTP 500 error if the conversion fails
-        raise HTTPException(status_code=500, detail=str(e))
-
-    # Create a ZIP archive containing all generated FHIR JSON files
-    zip_path = out_dir / "fhir_export.zip"
-    if zip_path.exists():
-        zip_path.unlink()
-
-    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as z:
-        for p in out_dir.glob("*.json"):
-            z.write(p, arcname=p.name)
-
-    # Return the ZIP file as a downloadable response
-    return FileResponse(
-        path=str(zip_path),
-        filename="fhir_export.zip",
-        media_type="application/zip",
-    )
-
-
-@router.get("/ui/export/fhir", response_class=HTMLResponse)
-async def ui_export_fhir(request: Request):
-    # Serve a simple HTML interface to trigger or visualize the FHIR export
-    return tempfile.template.TemplateResponse("export_fhir.html", {"request": request})
-
-
-
 
 
 # --- ENDPOINT : FHIR (dossier) -> EDS ---
@@ -184,9 +122,9 @@ async def export_eds_zip():
 @router.get("/report/last-run", tags=["Report"])
 async def get_last_run_report():
     """
-    Retourne le dernier rapport de run (eds/last_run.json) généré par process_dir/process_bundle.
+    Retourne le dernier rapport de run (report/last_run.json) généré par process_dir/process_bundle.
     """
-    report_path = os.path.join(EDS_DIR, "last_run.json")
+    report_path = os.path.join(REPORTS_DIR, "last_run.json")
     if not os.path.exists(report_path):
         raise HTTPException(status_code=404, detail="Aucun rapport disponible (last_run.json introuvable).")
 
@@ -214,11 +152,228 @@ async def get_stats():
         stats[t] = {"rows": rows, "cols": cols}
 
     # si report existe, on le renvoie aussi (pratique en démo)
-    report_path = os.path.join(EDS_DIR, "last_run.json")
+    report_path = os.path.join(REPORTS_DIR, "last_run.json")
     last_run = None
     if os.path.exists(report_path):
         with open(report_path, "r", encoding="utf-8") as f:
             last_run = json.load(f)
 
-    return {"eds_dir": EDS_DIR, "tables": stats, "last_run": last_run}
+    return {"report_dir": REPORTS_DIR, "tables": stats, "last_run": last_run}
 
+
+@router.post("/convert/fhir-warehouse-to-edsan", tags=["Conversion"])
+async def convert_fhir_warehouse_to_edsan(payload: dict | None = None):
+    """
+    Equivalent "convert dir" mais depuis l’entrepôt FHIR (HAPI).
+    payload optionnel:
+      - patient_limit (int): nb de patients à convertir (par défaut 50)
+        * si patient_limit = 0 => convertit TOUS les patients (attention lourd)
+      - page_size (int): _count utilisé pour pagination (par défaut 100)
+    """
+    patient_limit = 50
+    page_size = 100
+    if payload:
+        patient_limit = int(payload.get("patient_limit", patient_limit))
+        page_size = int(payload.get("page_size", page_size))
+
+    # 1) récupérer les IDs de patients
+    try:
+        patients_bundle = _fetch_bundle_all_pages(
+            f"{FHIR_SERVER_URL}/Patient",
+            params={"_count": page_size}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Erreur accès entrepôt FHIR: {str(e)}")
+
+    patient_ids = []
+    for entry in patients_bundle.get("entry", []) or []:
+        res = entry.get("resource", {})
+        if res.get("resourceType") == "Patient" and res.get("id"):
+            patient_ids.append(res["id"])
+
+    if not patient_ids:
+        raise HTTPException(status_code=404, detail="Aucun Patient dans l'entrepôt FHIR.")
+
+    try:
+        patient_ids = _collect_patient_ids(patient_limit, page_size)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Erreur accès entrepôt FHIR: {str(e)}")
+
+    if not patient_ids:
+        raise HTTPException(status_code=404, detail="Aucun Patient dans l'entrepôt FHIR.")
+
+
+    run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    started_at = datetime.now().isoformat()
+
+    per_patient = []
+    ok = 0
+    ko = 0
+
+    # 2) Pour chaque patient : Patient/{id}/$everything -> Bundle patient complet -> process_bundle
+    for pid in patient_ids:
+        try:
+            everything_url = f"{FHIR_SERVER_URL}/Patient/{pid}/$everything"
+            bundle = _fetch_bundle_all_pages(everything_url, params={"_count": page_size})
+
+            # IMPORTANT: on évite d’écrire last_run à chaque patient
+            _ = fhir_to_edsan.process_bundle(bundle, write_report=False)
+
+            per_patient.append({
+                "patient_id": pid,
+                "status": "success",
+                "entries": len(bundle.get("entry", []) or []),
+            })
+            ok += 1
+        except Exception as e:
+            per_patient.append({
+                "patient_id": pid,
+                "status": "failed",
+                "error": str(e),
+            })
+            ko += 1
+
+    ended_at = datetime.now().isoformat()
+
+    # 3) Report GLOBAL (celui que tu veux: OK/KO, erreurs, traces)
+    report = {
+        "run_id": run_id,
+        "mode": "warehouse_all",
+        "warehouse_url": FHIR_SERVER_URL,
+        "patient_limit": patient_limit,
+        "page_size": page_size,
+        "started_at": started_at,
+        "ended_at": ended_at,
+        "patients_total": len(patient_ids),
+        "patients_success": ok,
+        "patients_failed": ko,
+        "patients": per_patient,
+    }
+
+    # archive + last_run.json (historique)
+    from app.utils.helpers import write_last_run_report
+    write_last_run_report(report, REPORTS_DIR)
+
+    return {"status": "success", "data": report}
+
+
+@router.post("/convert/fhir-warehouse-patient-to-edsan", tags=["Conversion"])
+async def convert_one_patient_from_warehouse(payload: dict):
+    """
+    Equivalent "1 fichier patient Synthea" mais depuis l’entrepôt.
+    payload: {"patient_id": "..."}
+    """
+    pid = payload.get("patient_id")
+    if not pid:
+        raise HTTPException(status_code=400, detail="patient_id requis.")
+
+    run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    started_at = datetime.now().isoformat()
+
+    try:
+        everything_url = f"{FHIR_SERVER_URL}/Patient/{pid}/$everything"
+        bundle = _fetch_bundle_all_pages(everything_url, params={"_count": 200})
+
+        _ = fhir_to_edsan.process_bundle(bundle, write_report=False)
+
+        report = {
+            "run_id": run_id,
+            "mode": "warehouse_one",
+            "warehouse_url": FHIR_SERVER_URL,
+            "started_at": started_at,
+            "ended_at": datetime.now().isoformat(),
+            "patient_id": pid,
+            "entries": len(bundle.get("entry", []) or []),
+        }
+
+        from app.utils.helpers import write_last_run_report
+        write_last_run_report(report, REPORTS_DIR)
+
+        return {"status": "success", "data": report}
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Erreur conversion patient {pid}: {str(e)}")
+
+
+@router.get("/report/runs", tags=["Report"])
+async def list_runs():
+    """
+    Liste l'historique des runs (archives).
+    """
+    runs_dir = Path(REPORTS_DIR) / "runs"
+    if not runs_dir.exists():
+        return []
+    files = sorted(runs_dir.glob("last_run_*.json"), reverse=True)
+    return [{"name": f.name, "size": f.stat().st_size} for f in files]
+
+
+@router.get("/report/run/{name}", tags=["Report"])
+async def download_run(name: str):
+    """
+    Télécharge un run archivé.
+    """
+    if ".." in name or "/" in name or "\\" in name:
+        raise HTTPException(status_code=400, detail="Nom invalide.")
+    path = Path(REPORTS_DIR) / "runs" / name
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Run introuvable.")
+    return FileResponse(str(path), filename=name, media_type="application/json")
+
+
+
+
+# ===============================EDSAN  TO   FHIR==============================================
+
+@router.post("/export/edsan-to-fhir-zip", tags=["Export"])
+def edsan_to_fhir_zip():
+    """
+    Convertit EDSAN -> FHIR, génère les bundles JSON puis renvoie un ZIP.
+    """
+    try:
+        tmpdir = Path(tempfile.mkdtemp(prefix="edsan_fhir_"))
+        out_dir = tmpdir / "exports_eds_fhir"
+
+        export_eds_to_fhir(
+            eds_dir=None,            # => DEFAULT_EDS_DIR (eds/)
+            output_dir=out_dir,      # écrit les JSON ici
+            mapping_path=None,       # => mapping.json par défaut
+            fhir_base_url=None,      # pas de push
+            print_summary=False,
+        )
+
+        zip_path = tmpdir / "edsan_to_fhir.zip"
+        _zip_folder(out_dir, zip_path)
+
+        return FileResponse(
+            path=str(zip_path),
+            filename="edsan_to_fhir.zip",
+            media_type="application/zip",
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@router.post("/export/edsan-to-fhir-warehouse", tags=["Export"])
+def edsan_to_fhir_warehouse():
+    """
+    Convertit EDSAN -> FHIR puis pousse les bundles vers le serveur FHIR.
+    """
+    try:
+        result = export_eds_to_fhir(
+            eds_dir=None,
+            output_dir=None,  # optionnel : mets un dossier si tu veux aussi garder les JSON
+            mapping_path=None,
+            fhir_base_url="http://localhost:8080/fhir",  # <-- mets ici l'URL réelle
+            print_summary=False,
+        )
+
+        return {
+            "message": "Push vers FHIR terminé",
+            "summary": result.get("summary"),
+            "push_results_keys": list(result.get("push_results", {}).keys()),
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

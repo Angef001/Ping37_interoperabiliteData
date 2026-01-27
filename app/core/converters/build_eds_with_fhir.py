@@ -2,14 +2,13 @@ import json
 import glob
 import os
 import polars as pl
-
-from app.core.utils.helpers import (
+from app.utils.helpers import (
     compute_age,
     enforce_schema,
     get_value_from_path,
     load_json_flexible,
     _compute_expected_columns,
-    _coalesce_from,
+    _coalesce_from_path,
 )
 
 # =============================================================================
@@ -21,6 +20,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_DIR)))
 MAPPING_FILE = os.path.join(PROJECT_ROOT, "app", "core", "config", "mapping.json")
 FHIR_DIR = os.path.join(PROJECT_ROOT, "synthea", "output", "fhir")
 EDS_DIR = os.path.join(PROJECT_ROOT, "data", "eds")
+REPORTS_DIR = os.path.join(PROJECT_ROOT , "data","reports")
 
 # =============================================================================
 # FONCTION PRINCIPALE ETL
