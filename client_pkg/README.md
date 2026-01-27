@@ -23,6 +23,9 @@ Avant d'installer le client, assurez-vous d'avoir les éléments suivants sur vo
 Le client est déjà conteneurisé pour éviter les conflits de dépendances sur votre machine hôte.
 
 ```bash
+# Lancement des conteneurs
+podman-compose up --build -d
+ 
 # Entrer dans le conteneur client
 podman exec -it ping37_interoperabilitedata_cli-client_1 bash
 
