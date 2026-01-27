@@ -183,7 +183,7 @@ chu-fhir download-run <nom_du_zip> --out ./ma_destination/
 * Convertir un patient 
     'chu-fhir warehouse-convert-patient --id <id>'
 
-* Afficher l'historique
+* Afficher l'historique 
     'chu-fhir runs'
 
 
@@ -197,3 +197,7 @@ chu-fhir download-run <nom_du_zip> --out ./ma_destination/
 
 * Afficher les tables de l'eds
     'chu-fhir eds-tables'
+
+
+Pour consulter les nouvelles tables parquet, consluter le dossier data/eds
+Pour consulter l'historique des runs, consulter le dossier data/reports/runs
