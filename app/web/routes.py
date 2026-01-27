@@ -7,7 +7,7 @@ from pathlib import Path
 from app.core.converters.fhir_to_edsan import process_dir  
 from app.core.converters.fhir_to_edsan import process_bundle
 from app.core.converters.build_eds_with_fhir import EDS_DIR
-from Ping37_interoperabiliteData.app.core.converters.edsan_to_fhir_1 import export_eds_to_fhir, export_eds_to_fhir_zip
+from app.core.converters.edsan_to_fhir_1 import export_eds_to_fhir, export_eds_to_fhir_zip
 import tempfile
 from fastapi.responses import StreamingResponse
 import io, zipfile

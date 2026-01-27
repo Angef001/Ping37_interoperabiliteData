@@ -299,17 +299,34 @@ def _coalesce_from(df: pl.DataFrame, target: str, src: str) -> pl.DataFrame:
 
 
 def write_last_run_report(result: dict, target_eds_dir: str, filename: str = "last_run.json") -> None:
-    """Écrit un rapport JSON (dernier run) dans le dossier EDS.
-
-    Objectif: centraliser cette écriture (utilisée par fhir_to_edsan) dans Helpers.
-    Cela permet au Dashboard de lire les stats (nombre de lignes, succès/échec).
-    Ne doit jamais faire échouer le pipeline si l'écriture échoue (try/except pass).
+    """
+    - Ecrit le dernier run dans eds/last_run.json
+    - Archive chaque run dans eds/runs/last_run_<timestamp>.json (historique)
     """
     try:
-        p = Path(target_eds_dir) / filename
-        with open(p, "w", encoding="utf-8") as f:
-            # indent=2 rend le fichier lisible pour un humain
+        from pathlib import Path
+        from datetime import datetime
+        import json
+
+        eds_path = Path(target_eds_dir)
+        eds_path.mkdir(parents=True, exist_ok=True)
+
+        # 1) Dernier run (toujours le plus récent)
+        latest = eds_path / filename
+        with open(latest, "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
+
+        # 2) Historique (jamais écrasé)
+        runs_dir = eds_path / "runs"
+        runs_dir.mkdir(parents=True, exist_ok=True)
+
+        run_id = result.get("run_id") if isinstance(result, dict) else None
+        ts = run_id or datetime.now().strftime("%Y%m%d_%H%M%S")
+        archived = runs_dir / f"last_run_{ts}.json"
+
+        with open(archived, "w", encoding="utf-8") as f:
+            json.dump(result, f, ensure_ascii=False, indent=2)
+
     except Exception:
-        # Non bloquant : si le disque est plein ou erreur de droits, on continue quand même
+        # on ne casse pas la conversion si l’écriture échoue
         pass
