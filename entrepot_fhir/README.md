@@ -66,6 +66,6 @@ mvn spring-boot:run
 
 ## ⚙️ Configuration et Accès
 
-* **Accès Web** : Le serveur est accessible sur [http://localhost:8080/fhir/].
+* **Accès Web** : Le serveur est accessible sur http://localhost:8080/fhir/.
 * **Fichier de configuration** : La personnalisation (ports, base de données, validation) s'effectue dans `src/main/resources/application.yaml`.
 * **Base de données** : Par défaut, le serveur utilise une base **H2** embarquée pour faciliter le développement.
