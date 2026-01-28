@@ -127,7 +127,7 @@ def get_resource(resource_type: str, resource_id: str):
 
 @app.command()
 def warehouse_convert(
-    patient_limit: int = typer.Option(50, "--patient-limit", "-n", help="Nb patients à convertir (0 = tout l'entrepôt)"),
+    patient_limit: int = typer.Option(0, "--patient-limit", "-n", help="Nb patients à convertir (0 = tout l'entrepôt)"),
     page_size: int = typer.Option(100, "--page-size", help="Taille de page _count côté FHIR")
 ):
     """

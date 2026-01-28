@@ -18,6 +18,8 @@ from typing import Optional, Union
 import requests
 from dotenv import load_dotenv
 import os
+from collections import Counter
+
 import polars as pl
  
 load_dotenv()  # charge le .env
@@ -418,6 +420,26 @@ def _collect_patient_ids(limit: int, page_size: int, timeout: int = 60) -> list[
         bundle = r.json()
  
     return ids
+
+def summarize_bundle(bundle: dict) -> dict:
+    """
+    Retourne:
+      - entries_total: nombre total d'entry dans le bundle
+      - resources_per_type: dict {resourceType: count}
+    """
+    entries = bundle.get("entry", []) or []
+    c = Counter()
+
+    for e in entries:
+        res = (e.get("resource") or {})
+        rt = res.get("resourceType")
+        if rt:
+            c[rt] += 1
+
+    return {
+        "entries_total": len(entries),
+        "resources_per_type": dict(c),
+    }
  
  
 def _zip_folder(folder: str | Path, zip_path: str | Path) -> None:
