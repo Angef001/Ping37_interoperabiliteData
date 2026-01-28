@@ -240,7 +240,7 @@ def build_eds(
         if "PATSEX" in df_pat.columns:
             gender_map = {"male": "M", "female": "F", "other": "I", "unknown": "I"}
             df_pat = df_pat.with_columns(
-                pl.col("PATSEX").replace_strict(gender_map, default="I").alias("PATSEX")
+                pl.col("PATSEX").replace(gender_map, default="I").alias("PATSEX")
             )
 
         # Calcul de l'age a partir de la date de naissance
