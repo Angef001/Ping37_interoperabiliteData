@@ -118,7 +118,7 @@ chu-fhir warehouse-convert-patient --id <FHIR_ID>
 
 ```
 
-### ⚙️ 2. Conversion d'EDSan vers l'entrepot FHIR
+### ⚙️ 3. Conversion d'EDSan vers l'entrepot FHIR
 
 * **Export ZIP**
 Convertit les données EDSan en bundles FHIR et génère un fichier ZIP :
@@ -135,7 +135,7 @@ chu-fhir edsan-to-fhir-push
 **Note :** L'API doit être démarrée (`uvicorn app.main:app --reload`) avant d'utiliser ces commandes.
 
 
-### 📊 3. Gestion de l'EDS
+### 📊 4. Gestion de l'EDS
 
 Explorez les données converties au format `.parquet`.
 
@@ -161,7 +161,7 @@ chu-fhir stats
 
 
 
-### 📁 4. Rapports et Archives
+### 📁 5. Rapports et Archives
 
 Gérez l'historique des exécutions.
 
