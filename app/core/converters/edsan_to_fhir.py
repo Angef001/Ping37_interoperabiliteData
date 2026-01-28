@@ -9,6 +9,9 @@ import requests
 import pandas as pd
 from zipfile import ZipFile, ZIP_DEFLATED
 from app.utils.helpers import clean_id, format_fhir_date, write_last_run_report
+from datetime import datetime
+import os
+import logging
  
 FHIR_XHTML_NS = ' xmlns="http://www.w3.org/1999/xhtml"'
  
@@ -17,6 +20,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_EDS_DIR = PROJECT_ROOT / "eds"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "exports_eds_fhir"
 DEFAULT_MAPPING_PATH = Path(__file__).resolve().parent / "mapping.json"
+DEFAULT_REPORTS_DIR = PROJECT_ROOT / "/app/data/reports_export"
+
+# Configuration des Logs Console
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
  
 # =============================================================================
 # Generic helpers
@@ -187,6 +194,23 @@ def push_bundle_to_fhir(bundle: dict, fhir_base_url: str) -> dict:
 def get_patient_id(res: dict) -> str | None:
     ref = res.get("subject", {}).get("reference") or res.get("patient", {}).get("reference")
     return ref.split("/", 1)[1] if isinstance(ref, str) and "/" in ref else None
+
+# =============================================================================
+# Logs generation
+# ==============================================================================
+def save_export_report(summary: dict, errors: list[str]):
+    os.makedirs(DEFAULT_REPORTS_DIR, exist_ok=True)
+    report = {
+        "timestamp": datetime.now().isoformat(),
+        "status": "success" if not errors else "partial_success",
+        "summary": summary,
+        "errors": errors[:50]
+    }
+    report_path = Path(DEFAULT_REPORTS_DIR) / "last_export_fhir.json"
+    with open(report_path, "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=4, ensure_ascii=False)
+    logging.info(f"Rapport d'export généré : {report_path}")
+
  
 # =============================================================================
 # Main Export Function
@@ -203,50 +227,79 @@ def export_eds_to_fhir(
     eds_dir = Path(eds_dir or DEFAULT_EDS_DIR)
     mapping_path = Path(mapping_path or DEFAULT_MAPPING_PATH)
     out_dir = Path(output_dir) if output_dir else None
- 
+
     with open(mapping_path, "r", encoding="utf-8") as f:
         mapping = json.load(f)
- 
+
     all_resources = []
     by_type = {}
- 
+
     for rtype, cfg in mapping.items():
         if rtype.startswith("_"): continue
         parquet = eds_dir / cfg.get("table_name", "")
         if not parquet.exists(): continue
-       
+        
+        logging.info(f"Traitement de {rtype}...")
         df = pd.read_parquet(parquet)
         built = [build_resource(rtype, row, cfg) for _, row in df.iterrows()]
         by_type[rtype] = len(built)
         all_resources.extend(built)
- 
+
     bundles = {}
     grouped = {}
     for r in all_resources:
         pid = r["id"] if r["resourceType"] == "Patient" else get_patient_id(r)
         if pid: grouped.setdefault(pid, []).append(r)
- 
+
+    push_errors = []
+    success_count = 0
+
     for pid, resources in grouped.items():
         bid = f"patient-{pid}"
         bundles[bid] = build_transaction_bundle(resources, bid)
- 
+
     push_results = {}
     for bid, bundle in bundles.items():
         if out_dir:
             out_dir.mkdir(parents=True, exist_ok=True)
             with open(out_dir / f"{bid}.json", "w", encoding="utf-8") as f:
                 json.dump(bundle, f, indent=2, ensure_ascii=False)
-       
+        
         if fhir_base_url:
-            push_results[bid] = push_bundle_to_fhir(bundle, fhir_base_url)
- 
-    summary = {"bundles_generated": len(bundles), "resources_per_type": by_type}
+            # Ajout du try/except pour remplir push_errors
+            try:
+                push_results[bid] = push_bundle_to_fhir(bundle, fhir_base_url)
+                success_count += 1
+            except Exception as e:
+                push_errors.append(f"Erreur Bundle {bid}: {str(e)}")
+                logging.error(f"Échec envoi {bid}: {e}")
+
+    summary = {
+        "bundles_generated": len(bundles), 
+        "bundles_pushed": success_count,
+        "resources_per_type": by_type
+    }
+    
     if print_summary: print(json.dumps(summary, indent=2))
+
+    # Appel de la sauvegarde avant le return
+    save_export_report(summary, push_errors)
+    logging.info("Export terminé.")
+
     return {"summary": summary, "push_results": push_results}
  
 if __name__ == "__main__":
+    # Priorité aux variables d'environnement (Conteneur), 
+    # sinon valeurs par défaut (Local)
+    
+    eds_dir = os.getenv("EDS_DIR", "eds")
+    output_dir = os.getenv("OUTPUT_DIR", "exports_eds_fhir")
+    
+    # Rappel : En réseau 'host', 127.0.0.1 est plus stable pour le conteneur
+    fhir_url = os.getenv("FHIR_URL", "http://localhost:8080/fhir")
+
     export_eds_to_fhir(
-        eds_dir="eds",
-        output_dir="exports_eds_fhir",
-        fhir_base_url="http://localhost:8080/fhir"
+        eds_dir=eds_dir,
+        output_dir=output_dir,
+        fhir_base_url=fhir_url
     )

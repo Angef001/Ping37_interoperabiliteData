@@ -59,7 +59,8 @@ def _patient_row(res: dict):
         family = res["name"][0].get("family", "N/A")
         given = " ".join(res["name"][0].get("given", []) or ["N/A"])
     birth = res.get("birthDate", "N/A")
-    return pid, family, given, birth
+    gender = res.get("gender", "N/A")
+    return pid, family, given, birth, gender
 
 
 @app.command()
@@ -74,6 +75,7 @@ def get_patient(patient_id: str):
         table.add_column("Nom", style="magenta")
         table.add_column("Prénom", style="green")
         table.add_column("Naissance")
+        table.add_column("Genre")
         table.add_row(*_patient_row(p))
         console.print(table)
     else:
@@ -97,6 +99,7 @@ def get_patients(ids: List[str]):
     table.add_column("ID", style="cyan")
     table.add_column("Nom", style="magenta")
     table.add_column("Prénom", style="green")
+    table.add_column("Naissance")
     table.add_column("Naissance")
 
     for e in entries:
