@@ -95,7 +95,7 @@ chu-fhir get-resource Patient 123
 
 
 
-### ⚙️ 2. Conversion d'Entrepôt
+### ⚙️ 2. Conversion d'Entrepôt FHIR
 
 Pilotez la conversion de l'entrepôt FHIR vers le format EDS (Parquet).
 
@@ -112,6 +112,21 @@ chu-fhir warehouse-convert-patient --id <FHIR_ID>
 
 ```
 
+### ⚙️ 2. Conversion d'EDSan vers l'entrepot FHIR
+
+* **Export ZIP**
+Convertit les données EDSan en bundles FHIR et génère un fichier ZIP :
+```bash
+chu-fhir edsan-to-fhir-zip --output /chemin/vers/export.zip
+```
+
+* **Push vers l'entrepôt FHIR**
+Convertit et envoie directement les bundles vers le serveur FHIR :
+```bash
+chu-fhir edsan-to-fhir-push
+```
+
+**Note :** L'API doit être démarrée (`uvicorn app.main:app --reload`) avant d'utiliser ces commandes.
 
 
 ### 📊 3. Gestion de l'EDS
