@@ -6,6 +6,7 @@ __pycache__/
 
 # --- Environnement Virtuel ---
 .venv/
+.env/
 venv/
 ENV/
 
@@ -18,6 +19,7 @@ data/
 # Exception : on veut garder le dossier fhir source de Synthea vide ou avec un exemple
 # Mais idéalement, les sorties de Synthea ne doivent pas être sur Git
 output/
+Synthea/
 
 # --- IDE (VS Code / PyCharm) ---
 .vscode/
@@ -26,3 +28,17 @@ output/
 # --- OS ---
 .DS_Store
 Thumbs.db
+
+#variables d'environnement
+<<<<<<< HEAD
+.env
+=======
+.env
+
+# Java / Maven
+target/
+*.jar
+*.war
+*.class
+>>>>>>> 7b18703d2bdf1b2fdaccab5a451522715c16af18
+*~HEAD

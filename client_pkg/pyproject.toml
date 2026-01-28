@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "interoperabilite-cli"
+version = "0.1.0"
+description = "Client CLI pour interroger l'entrepôt FHIR du CHU Rouen"
+dependencies = [
+    "typer[all]",
+    "requests",
+    "rich"
+]
+
+[project.scripts]
+# Cette commande crée la commande 'chu-fhir' dans le terminal
+chu-fhir = "src.main:app" 
+
+[tool.setuptools]
+packages = ["src"]

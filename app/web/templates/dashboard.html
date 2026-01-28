@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Dashboard</h1>
+<p>Pipeline : FHIR → Mapping → EDS → Stats → Export</p>
+
+<div class="card">
+<h3>Tables EDS détectées</h3>
+<ul>
+  {% for t in tables %}
+    <li>{{ t }}</li>
+  {% endfor %}
+</ul>
+</div>
+{% endblock %}

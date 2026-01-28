@@ -1,69 +1,172 @@
 {
+  "_schemas": {
+    "patient.parquet": ["PATID", "PATBD", "PATAGE", "PATSEX"],
+    "mvt.parquet": ["PATID", "EVTID", "ELTID", "PATAGE", "PATSEX", "DATENT", "DATSORT", "SEJUF", "SEJUM"],
+    "biol.parquet": ["PATID", "EVTID", "ELTID", "PRLVTDATE", "SEJUM", "SEJUF", "PNAME", "ANAME", "RNAME", "LOINC", "RESULT", "UNIT", "MINREF", "MAXREF", "VALIDADATE", "PATAGE", "PATSEX"],
+    "pharma.parquet": ["PATID", "EVTID", "ELTID", "PRES", "ALLSPELABEL", "ALLUCD13", "DATENT", "DATSORT", "DATPRES", "CAT", "SEJUM", "SEJUF", "UFPRO", "PATBD", "PATAGE", "PATSEX", "SRC"],
+    "doceds.parquet": ["PATID", "EVTID", "ELTID", "RECTXT", "RECFAMTXT", "RECDATE", "RECTYPE", "SEJUM", "SEJUF", "PATBD", "PATAGE", "PATSEX"],
+    "pmsi.parquet": ["PATID", "EVTID", "ELTID", "DALL", "DATENT", "DATSORT", "SEJDUR", "SEJUM", "SEJUF", "PATBD", "PATAGE", "PATSEX", "CODEACTES", "ACTES", "MODEENT", "MODESORT", "PMSISTATUT", "GHM", "SEVERITE", "SRC"],
+    "pmsi_diag.parquet": ["PATID","EVTID","ELTID","DATENT","DALL","GHM","SEVERITE","PMSISTATUT"],
+    "actes.parquet": ["PATID","EVTID","ELTID","DATENT","CODEACTES","ACTES"],
+    "diagreport.parquet": ["PATID","EVTID","ELTID","RECTXT","RECDATE","RECTYPE"],
+    "docref.parquet": ["PATID","EVTID","ELTID","RECTXT","RECDATE","RECTYPE","SEJUM"],
+    "composition.parquet": ["PATID","EVTID","ELTID","RECTXT","RECFAMTXT","RECDATE","RECTYPE"]
+  },
+
+
+
   "Patient": {
     "table_name": "patient.parquet",
     "columns": {
       "PATID": "id",
-      "PATSEX": "gender",
       "PATBD": "birthDate",
-      "NOM": "name[0].family",
-      "PRENOM": "name[0].given[0]",
-      "VILLE": "address[0].city"
+      "PATSEX": "gender",
+      "PATAGE": ""
     }
   },
+
   "Encounter": {
     "table_name": "mvt.parquet",
     "columns": {
-      "EVTID": "id",
       "PATID": "subject.reference",
-      "ELTID": "id",
+      "EVTID": "id",
+      "ELTID": "location[0].location.reference",
       "DATENT": "period.start",
+
+      "DATSORT": "period.end",
       "SEJUM": "serviceProvider.display",
-      "SEJUF": "location[0].location.display"
+      "SEJUF": "location[0].location.display",
+      "PATSEX": "",
+      "PATAGE": ""
     }
   },
+
   "Observation": {
     "table_name": "biol.parquet",
     "columns": {
-      "ELTID": "id",
       "PATID": "subject.reference",
       "EVTID": "encounter.reference",
+      "ELTID": "id",
       "PRLVTDATE": "effectiveDateTime",
       "PNAME": "code.text",
+      "ANAME": "code.text",
+      "RNAME": "code.coding[0].display",
+      "LOINC": "code.coding[0].code",
       "RESULT": "valueQuantity.value",
-      "UNIT": "valueQuantity.unit"
+      "UNIT": "valueQuantity.unit",
+      "MINREF": "referenceRange[0].low.value",
+      "MAXREF": "referenceRange[0].high.value",
+      "VALIDADATE": "issued",
+      "SEJUM": "",
+      "SEJUF": "",
+      "PATSEX": "",
+      "PATAGE": ""
     }
   },
+
   "MedicationRequest": {
     "table_name": "pharma.parquet",
     "columns": {
-      "ELTID": "id",
       "PATID": "subject.reference",
       "EVTID": "encounter.reference",
-      "ALLSPELABEL": "medicationCodeableConcept.text",
+      "ELTID": "id",
       "DATPRES": "authoredOn",
-      "PRES": "dosageInstruction[0].text"
+      "PRES": "dosageInstruction[0].text",
+      "ALLSPELABEL": "medicationCodeableConcept.text",
+      "ALLUCD13": "medicationCodeableConcept.coding[0].code",
+      "UFPRO": "performer.display",
+      "CAT": "category[0].text",
+      "SRC": "requester.display",
+      "DATENT": "",
+      "DATSORT": "",
+      "SEJUM": "",
+      "SEJUF": "",
+      "PATBD": "",
+      "PATSEX": "",
+      "PATAGE": ""
     }
   },
-  "Condition": {
-    "table_name": "pmsi.parquet",
-    "columns": {
-      "ELTID": "id",
-      "PATID": "subject.reference",
-      "EVTID": "encounter.reference",
-      "TYPE": "resourceType",
-      "CODE": "code.coding[0].code",
-      "LIBELLE": "code.text",
-      "DATENT": "recordedDate"
-    }
-  },
+
   "DiagnosticReport": {
-    "table_name": "doceds.parquet",
+    "table_name": "diagreport.parquet",
     "columns": {
-      "ELTID": "id",
       "PATID": "subject.reference",
       "EVTID": "encounter.reference",
-      "RECTXT": "presentedForm[0].data",
-      "RECDATE": "effectiveDateTime"
+      "ELTID": "id",
+      "RECTXT": "presentedForm[0].data||code.text",
+      "RECFAMTXT": "",
+      "RECDATE": "effectiveDateTime",
+      "RECTYPE": "category[0].coding[0].display||code.coding[0].display||code.text",
+      "SEJUM": "",
+      "SEJUF": "",
+      "PATBD": "",
+      "PATSEX": "",
+      "PATAGE": ""
     }
+  },
+
+  "DocumentReference": {
+    "table_name": "docref.parquet",
+    "columns": {
+      "PATID": "subject.reference",
+      "EVTID": "context.encounter.reference",
+      "ELTID": "id",
+      "RECTYPE": "category[0].coding[0].display",
+      "RECDATE": "date",
+      "RECTXT": "content[0].attachment.data"
+,
+      "RECFAMTXT": "",
+      "SEJUM": "custodian.display",
+      "SEJUF": "",
+      "PATBD": "",
+      "PATSEX": "",
+      "PATAGE": ""
+    }
+  },
+
+  "Composition": {
+    "table_name": "composition.parquet",
+    "columns": {
+      "PATID": "subject.reference",
+      "EVTID": "encounter.reference",
+      "ELTID": "id",
+      "RECTYPE": "type.text",
+      "RECDATE": "date",
+      "RECTXT": "text.div",
+      "RECFAMTXT": "section[0].text.div",
+      "SEJUM": "",
+      "SEJUF": "",
+      "PATBD": "",
+      "PATSEX": "",
+      "PATAGE": ""
+    }
+  },
+
+  "Condition": {
+  "table_name": "pmsi_diag.parquet",
+  "columns": {
+    "PATID": "subject.reference",
+    "EVTID": "encounter.reference",
+    "ELTID": "id",
+    "DALL": "code.text",
+    "GHM": "code.coding[0].code",
+    "SEVERITE": "severity.text",
+    "PMSISTATUT": "clinicalStatus.coding[0].code",
+    "DATENT": "recordedDate"
   }
+},
+
+
+  "Procedure": {
+  "table_name": "actes.parquet",
+  "columns": {
+    "PATID": "subject.reference",
+    "EVTID": "encounter.reference",
+    "ELTID": "id",
+    "CODEACTES": "code.coding[0].code",
+    "ACTES": "code.text",
+    "DATENT": "performedPeriod.start"
+  }
+}
+
 }

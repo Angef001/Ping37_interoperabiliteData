@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Convert Dossier</h1>
+<p class="muted">Conversion d’un dossier FHIR (gros volume, ex: Synthea). Tu peux saisir un chemin ou laisser vide.</p>
+
+<div class="card">
+  <div class="muted" style="margin-bottom:10px;"><b>Chemin dossier FHIR</b> (optionnel)</div>
+
+  <form hx-post="/ui/convert/run" hx-target="#result" hx-swap="innerHTML">
+    <input class="input" name="fhir_dir" type="text" placeholder="ex: synthea/output/fhir" style="min-width:520px;">
+    <div style="margin-top:12px;" class="row">
+      <button class="btn" type="submit">Lancer conversion dossier</button>
+      <a class="btn ghost" href="/ui" >Retour Home</a>
+    </div>
+  </form>
+</div>
+
+<div id="result">
+  <div class="card">
+    <div class="muted">Astuce : laisse vide pour utiliser le chemin par défaut.</div>
+  </div>
+</div>
+{% endblock %}

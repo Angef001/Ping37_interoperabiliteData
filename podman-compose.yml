@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+  fhir-server:
+    image: fhir-server:latest
+    network_mode: host
+    build:
+      context: ./entrepot_fhir/hapi-fhir-jpaserver-starter-master
+      dockerfile: Dockerfile
+    volumes:
+      - fhir-data:/usr/local/tomcat/data/hapi:Z
+
+  api-converter:
+    image: api-converter:latest
+    network_mode: host
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    environment:
+      - FHIR_URL=http://127.0.0.1:8080/fhir
+    depends_on:
+      - fhir-server
+
+  cli-client:
+    image: cli-client:latest
+    network_mode: host
+    build:
+      context: ./client_pkg
+      dockerfile: Dockerfile
+    environment:
+      - FHIR_URL=http://127.0.0.1:8080/fhir
+      - PYTHONPATH=.
+    depends_on:
+      - fhir-server
+    tty: true
+
+volumes:
+  fhir-data:
+
+networks:
+  default:
+    external: true
+    name: host

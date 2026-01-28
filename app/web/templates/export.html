@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Export ZIP</h1>
+<p class="muted">Télécharge un ZIP contenant uniquement les fichiers <b>.parquet</b> de l’EDS.</p>
+
+<div class="card">
+  <div class="muted" style="margin-bottom:10px;">
+    <b>Contenu exporté :</b> biol.parquet, mvt.parquet, pharma.parquet, doceds.parquet, pmsi.parquet, etc.
+  </div>
+
+  <a class="btn" href="/ui/export/download">Exporter ZIP</a>
+</div>
+{% endblock %}

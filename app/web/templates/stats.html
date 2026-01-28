@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="topbar">
+    <div>
+      <h1>Stats</h1>
+      <p class="muted">Indicateurs rapides sur les tables EDS + dernier run (last_run.json).</p>
+    </div>
+
+    <button class="btn"
+      hx-get="/ui/stats/data"
+      hx-target="#stats"
+      hx-swap="innerHTML"
+    >
+      Charger les stats
+    </button>
+  </div>
+
+  <div id="stats">
+    <div class="card">
+      <div class="section-title">📊 Prêt à afficher</div>
+      <div class="muted">Clique sur “Charger les stats” pour afficher les KPI et le report.</div>
+    </div>
+  </div>
+{% endblock %}

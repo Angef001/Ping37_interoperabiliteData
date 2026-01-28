@@ -1,0 +1,7 @@
+Metadata-Version: 2.4
+Name: interoperabilite-cli
+Version: 0.1.0
+Summary: Client CLI pour interroger l'entrepôt FHIR du CHU Rouen
+Requires-Dist: typer[all]
+Requires-Dist: requests
+Requires-Dist: rich

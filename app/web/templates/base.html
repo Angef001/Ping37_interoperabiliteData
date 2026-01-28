@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ title if title else "PING37 – Phase 3" }}</title>
+
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">PING 37 – Phase 3</div>
+
+      <nav class="nav">
+        <a href="/ui">Home</a>
+        <a href="/ui/import">Import FHIR</a>
+        <a href="/ui/convert">Convert Dossier FHIR</a>
+        <a href="/ui/eds">Explorer EDS</a>
+        <a href="/ui/export">Export parquet ZIP</a>
+        <a href="/ui/export/fhir">Export FHIR ZIP</a>
+        <a href="/docs" target="_blank">Swagger</a>
+      </nav>
+
+      <div class="sidecard">
+        <div class="side-title">API base URL</div>
+        <code>http://127.0.0.1:8000/api/v1</code>
+        <div class="side-muted">Assure-toi que l’API tourne : <code>uvicorn app.main:app --reload</code></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</body>
+</html>
