@@ -25,6 +25,9 @@ Le client est déjà conteneurisé pour éviter les conflits de dépendances sur
 ```bash
 # Lancement des conteneurs
 podman-compose up --build -d
+
+#Remplir l'entrepôt de données fhir (si ce n'est pas déjà fait)
+podman exec -it ping37_interoperabilitedata_api-converter_1 python3 -m app.core.converters.edsan_to_fhir
  
 # Entrer dans le conteneur client
 podman exec -it ping37_interoperabilitedata_cli-client_1 bash
@@ -34,7 +37,7 @@ chu-fhir --help
 
 ```
 
-Note : Le conteneur définit automatiquement le `PYTHONPATH` sur `/app` pour garantir le bon fonctionnement des imports.
+Note: Taper "exit" pour sortir d'un conteneur 
 
 ### 2. Installation locale (Mode Développement)
 
@@ -45,12 +48,15 @@ Si vous souhaitez développer ou tester le client directement sur votre machine 
 python3 -m venv .venv
 source .venv/bin/activate
 
-# 2. Installer le package en mode éditable
+# 2. Installer le package en mode éditable en vous plaçant dans le dossier client_pkg
 pip install -e .
 
 ```
-
 Cette commande installe automatiquement `typer`, `requests` et `rich`.
+
+**Astuce dépannage** : Si vous installez le client localement et recevez une erreur `ModuleNotFoundError: No module named 'src'`, assurez-vous de définir votre chemin source en tapant:
+`export PYTHONPATH=$PYTHONPATH:.`
+
 
 ---
 
@@ -172,7 +178,6 @@ chu-fhir download-run <nom_du_zip> --out ./ma_destination/
 
 ```
 
-
 ---
 
 ## 📁 Structure du Projet
@@ -180,8 +185,34 @@ chu-fhir download-run <nom_du_zip> --out ./ma_destination/
 * `src/main.py` : Logique principale utilisant **Typer** pour le CLI et **Rich** pour les affichages en tableau.
 * `pyproject.toml` : Configuration du package et définition du point d'entrée `chu-fhir`.
 * `Dockerfile` : Image basée sur `python:3.12-slim` pour un déploiement léger.
+ 
 
----
+## Commande pour tester la conversion fhir-eds
 
-**Astuce dépannage** : Si vous installez le client localement et recevez une erreur `ModuleNotFoundError: No module named 'src'`, assurez-vous de définir votre chemin source :
-`export PYTHONPATH=$PYTHONPATH:.`
+* Convertir N patient(N peut etre egale à 50, 3, 10, etc selon votre envie)
+    'chu-fhir warehouse-convert --patient-limit N'
+
+* Convertir tout l'entrepot
+    'chu-fhir warehouse-convert ou chu-fhir warehouse-convert --patient-limit 0'
+
+* Convertir un patient 
+    'chu-fhir warehouse-convert-patient --id <id>'
+
+* Afficher l'historique 
+    'chu-fhir runs'
+
+
+* Telecharger un fichier last_run
+    'chu-fhir download-run  <nom du fichier>'
+
+
+* Afficher les stats de l'eds
+    'chu-fhir stats'
+
+
+* Afficher les tables de l'eds
+    'chu-fhir eds-tables'
+
+
+Pour consulter les nouvelles tables parquet, consluter le dossier data/eds
+Pour consulter l'historique des runs, consulter le dossier data/reports/runs
