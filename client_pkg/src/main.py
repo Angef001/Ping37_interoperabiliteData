@@ -299,6 +299,60 @@ def download_last_run(out: Optional[str] = typer.Option(None, "--out", help="Che
     console.print(f"[bold green]✅ last_run téléchargé -> {out_path.resolve()}[/bold green]")
 
 
+
+@app.command()
+def edsan_to_fhir_zip(
+    output: str = typer.Option("edsan_to_fhir.zip", "--output", "-o", help="Chemin où sauvegarder le ZIP")
+):
+    """
+    Convertir EDSan → FHIR et télécharger un ZIP.
+    """
+    console.print("🔄 [bold cyan]Conversion EDSan → FHIR en cours...[/bold cyan]")
+    
+    url = f"{CONVERTER_API_URL}/export/edsan-to-fhir-zip"
+    r = requests.post(url, stream=True, timeout=(10, 300))
+    _raise_if_error(r, "Export EDSan → FHIR ZIP")
+    
+    output_path = Path(output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(output_path, 'wb') as f:
+        for chunk in r.iter_content(chunk_size=8192):
+            if chunk:
+                f.write(chunk)
+    
+    size = output_path.stat().st_size
+    console.print(f"[bold green]✅ Export ZIP réussi → {output_path.resolve()}[/bold green]")
+    console.print(f"   Taille : {size:,} octets")
+
+
+@app.command()
+def edsan_to_fhir_push():
+    """
+    Convertir EDSan → FHIR et pousser vers l'entrepôt FHIR.
+    """
+    console.print("🔄 [bold cyan]Conversion et push vers FHIR en cours...[/bold cyan]")
+    
+    url = f"{CONVERTER_API_URL}/export/edsan-to-fhir-warehouse"
+    r = requests.post(url, timeout=(10, 600))
+    _raise_if_error(r, "Push EDSan → FHIR warehouse")
+    
+    result = r.json()
+    console.print("[bold green]✅ Push vers entrepôt FHIR réussi ![/bold green]")
+    
+    summary = result.get("summary", {})
+    table = Table(title="Résumé de la conversion", box=box.SIMPLE_HEAVY)
+    table.add_column("Métrique", style="cyan")
+    table.add_column("Valeur", style="magenta", justify="right")
+    
+    table.add_row("Bundles générés", str(summary.get("bundles_generated", 0)))
+    
+    resources = summary.get("resources_per_type", {})
+    for res_type, count in resources.items():
+        table.add_row(f"  └─ {res_type}", str(count))
+    
+    console.print(table)
+
 if __name__ == "__main__":
     app()
 
