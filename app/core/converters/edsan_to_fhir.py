@@ -17,10 +17,10 @@ FHIR_XHTML_NS = ' xmlns="http://www.w3.org/1999/xhtml"'
  
 # Racine projet
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_EDS_DIR = PROJECT_ROOT / "eds"
+DEFAULT_EDS_DIR = PROJECT_ROOT / "data/eds"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "exports_eds_fhir"
 DEFAULT_MAPPING_PATH = Path(__file__).resolve().parent / "mapping.json"
-DEFAULT_REPORTS_DIR = PROJECT_ROOT / "/app/data/reports_export"
+DEFAULT_REPORTS_DIR = PROJECT_ROOT / "data/reports_export"
 
 # Configuration des Logs Console
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -305,7 +305,7 @@ if __name__ == "__main__":
     # Priorité aux variables d'environnement (Conteneur), 
     # sinon valeurs par défaut (Local)
     
-    eds_dir = os.getenv("EDS_DIR", "eds")
+    eds_dir = os.getenv("EDS_DIR", "data/eds")
     output_dir = os.getenv("OUTPUT_DIR", "exports_eds_fhir")
     
     # Rappel : En réseau 'host', 127.0.0.1 est plus stable pour le conteneur

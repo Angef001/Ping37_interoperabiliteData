@@ -23,17 +23,20 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copier le reste du code source
 COPY app ./app
 
-# Créer le dossiers de stockage des fichiers edsan au format parquet
+# Créer le dossier de stockage des fichiers edsan au format parquet
 RUN mkdir -p /data/eds 
 
+# Créer le dossier de stockage des fichiers de logs d'import
 RUN mkdir -p /data/reports
 
+# Créer le dossier de stockage des fichiers de logs d'export
 RUN mkdir -p /data/reports_export
 
+# Créer le dossier de stockage des fichiers au format fhir
 RUN mkdir -p /app/output
 
-# Créer le dossiers de stockage des fichiers edsan au format fhir
-RUN mkdir -p /data/exports_eds_fhir
+# Créer le dossier de stockage de dossiers format zip contenant des données au format fhir
+RUN mkdir -p /app/output_zip
 
 # Exposer le port sur lequel FastAPI va tourner
 EXPOSE 8000
