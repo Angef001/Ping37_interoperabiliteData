@@ -198,9 +198,11 @@ chu-fhir download-run <nom_du_zip> --out ./ma_destination/
 * Convertir un patient 
     'chu-fhir warehouse-convert-patient --id <id>'
 
+* Convertir plusieurs patients en parquet
+    ' chu-fhir --ids <id> --ids <id> --ids <id> (vous pouvez mettre autant d'ids que vous souhaitez)
+
 * Afficher l'historique 
     'chu-fhir runs'
-
 
 * Telecharger un fichier last_run
     'chu-fhir download-run  <nom du fichier>'

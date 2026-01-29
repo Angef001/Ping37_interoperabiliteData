@@ -165,6 +165,26 @@ def warehouse_convert_patient(
     console.print("[bold green]✅ Conversion patient terminée[/bold green]")
     console.print_json(json.dumps(r.json(), ensure_ascii=False))
 
+@app.command()
+def warehouse_convert_patients(
+    ids: List[str] = typer.Option(..., "--ids", "-i", help="Liste des Patient IDs (répéter -i ou utiliser --ids id1 --ids id2)"),
+):
+    """
+    Convertit une LISTE de patients depuis l'entrepôt (HAPI) vers EDSan (parquet).
+    POST /convert/fhir-warehouse-patients-to-edsan
+    """
+    console.print("🔄 [bold cyan]Conversion multi-patients en cours...[/bold cyan]")
+
+    url = f"{CONVERTER_API_URL}/convert/fhir-warehouse-patients-to-edsan"
+    payload = {"patient_ids": ids}
+
+    r = requests.post(url, json=payload, timeout=(10, 900))
+    _raise_if_error(r, "Conversion liste patients entrepôt -> EDS")
+
+    console.print("[bold green]✅ Conversion multi-patients terminée[/bold green]")
+    console.print_json(json.dumps(r.json(), ensure_ascii=False))
+
+
 
 # =============================================================================
 # COMMANDES EDS (comme interface)
