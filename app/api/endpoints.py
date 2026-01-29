@@ -6,7 +6,7 @@ from app.core.converters import fhir_to_edsan
 from typing import List
 import os
 import polars as pl
-from app.core.converters.fhir_to_edsan import EDS_DIR, REPORTS_DIR
+from app.core.converters.fhir_to_edsan import EDS_DIR, REPORTS_DIR, REPORTS_DIR_EXPORT
 from app.utils.helpers import _fetch_bundle_all_pages, _collect_patient_ids,summarize_bundle, _zip_folder
 import json
 from fastapi.responses import FileResponse, HTMLResponse
@@ -27,7 +27,7 @@ router = APIRouter()
  
 FHIR_SERVER_URL = os.getenv("FHIR_SERVER_URL", "http://localhost:8080/fhir")
 FHIR_ACCEPT_HEADERS = {"Accept": "application/fhir+json"}
-REPORTS_DIR_EXPORT_PATH = Path(os.getenv("REPORTS_DIR", REPORTS_DIR))
+REPORTS_DIR_EXPORT_PATH = Path(os.getenv("REPORTS_DIR", REPORTS_DIR_EXPORT))
 
 
 #                --- ENDPOINT : FHIR (ENTREPOT) -> EDS ---
