@@ -18,8 +18,15 @@ services:
       dockerfile: app/Dockerfile
     environment:
       - FHIR_URL=http://127.0.0.1:8080/fhir
+      - EDS_DIR=/app/data/eds
+      - OUTPUT_DIR=/app/output
+      - REPORTS_DIR=/app/data/reports_export
     volumes:
-      - ./eds:/app/eds:Z
+      - ./data/eds:/app/data/eds:Z
+      - ./data/reports:/app/data/reports:Z
+      - ./exports_eds_fhir:/app/exports_eds_fhir:Z
+      - ./data/reports_export:/app/data/reports_export/:Z
+      - ./exports_eds_fhir:/app/output:Z
     depends_on:
       - fhir-server
 
