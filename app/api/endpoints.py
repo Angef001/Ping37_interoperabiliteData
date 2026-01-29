@@ -30,7 +30,6 @@ FHIR_ACCEPT_HEADERS = {"Accept": "application/fhir+json"}
 
 
 
-
 #                --- ENDPOINT : FHIR (ENTREPOT) -> EDS ---
 
 
@@ -325,10 +324,10 @@ def edsan_to_fhir_zip():
         out_dir = tmpdir / "exports_eds_fhir"
  
         export_eds_to_fhir(
-            eds_dir=None,            # => DEFAULT_EDS_DIR (eds/)
-            output_dir=out_dir,      # écrit les JSON ici
-            mapping_path=None,       # => mapping.json par défaut
-            fhir_base_url=None,      # pas de push
+            eds_dir=os.getenv("EDS_DIR", "data/eds"),
+            output_dir=out_dir,
+            mapping_path=None,
+            fhir_base_url=None,  
             print_summary=False,
         )
  
@@ -353,8 +352,8 @@ def edsan_to_fhir_warehouse():
     """
     try:
         result = export_eds_to_fhir(
-            eds_dir=None,
-            output_dir=None,  # optionnel : mets un dossier si tu veux aussi garder les JSON
+            eds_dir=os.getenv("EDS_DIR", "data/eds"),
+            output_dir=os.getenv("OUTPUT_DIR", "exports_eds_fhir"),  # optionnel : mets un dossier si tu veux aussi garder les JSON
             mapping_path=None,
             fhir_base_url="http://localhost:8080/fhir",  # <-- mets ici l'URL réelle
             print_summary=False,

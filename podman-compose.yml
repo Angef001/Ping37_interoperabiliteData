@@ -24,9 +24,9 @@ services:
     volumes:
       - ./data/eds:/app/data/eds:Z
       - ./data/reports:/app/data/reports:Z
-      - ./exports_eds_fhir:/app/exports_eds_fhir:Z
       - ./data/reports_export:/app/data/reports_export/:Z
       - ./exports_eds_fhir:/app/output:Z
+      - ./exports_eds_fhir_zip:/app/output_zip:Z
     depends_on:
       - fhir-server
 
@@ -39,6 +39,8 @@ services:
     environment:
       - FHIR_URL=http://127.0.0.1:8080/fhir
       - PYTHONPATH=.
+    volumes:
+      - ./exports_eds_fhir_zip:/app/output_zip:Z 
     depends_on:
       - fhir-server
     tty: true
