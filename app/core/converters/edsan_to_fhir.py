@@ -200,6 +200,8 @@ def get_patient_id(res: dict) -> str | None:
 # ==============================================================================
 def save_export_report(summary: dict, errors: list[str]):
     os.makedirs(DEFAULT_REPORTS_DIR, exist_ok=True)
+    export_reports_dir = os.path.join(DEFAULT_REPORTS_DIR, "exports")
+    os.makedirs(export_reports_dir, exist_ok=True)
 
     # Générer un timestamp (ex: 20260129_103005)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -212,7 +214,7 @@ def save_export_report(summary: dict, errors: list[str]):
     }
 
     # 3. Sauvegarder la copie unique (Historique)
-    history_path = os.path.join(DEFAULT_REPORTS_DIR, f"export_{timestamp}.json")
+    history_path = os.path.join(export_reports_dir, f"export_{timestamp}.json")
     with open(history_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=4, ensure_ascii=False)
 
