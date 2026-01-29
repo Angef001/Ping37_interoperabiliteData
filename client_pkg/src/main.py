@@ -134,6 +134,9 @@ def warehouse_convert(
     Equivalent 'convert dossier' mais depuis l'entrepôt HAPI.
     POST /convert/fhir-warehouse-to-edsan
     """
+
+    console.print("🔄 [bold cyan]Conversion  en cours...[/bold cyan]")
+
     url = f"{CONVERTER_API_URL}/convert/fhir-warehouse-to-edsan"
     payload = {"patient_limit": patient_limit, "page_size": page_size}
     r = requests.post(url, json=payload, timeout=(10, 900))  # 10s connect, 15min read
@@ -151,6 +154,9 @@ def warehouse_convert_patient(
     Equivalent '1 fichier Synthea patient' mais depuis l'entrepôt.
     POST /convert/fhir-warehouse-patient-to-edsan
     """
+
+    console.print("🔄 [bold cyan]Conversion en cours..[/bold cyan]")
+
     url = f"{CONVERTER_API_URL}/convert/fhir-warehouse-patient-to-edsan"
     payload = {"patient_id": patient_id}
     r = requests.post(url, json=payload)
@@ -167,6 +173,9 @@ def warehouse_convert_patient(
 @app.command()
 def eds_tables():
     """Liste les tables EDS disponibles."""
+
+    console.print("🔄 [bold cyan]Chargement des tables de l'EDS en cours...[/bold cyan]")
+
     url = f"{CONVERTER_API_URL}/eds/tables"
     r = requests.get(url, timeout=15)
     _raise_if_error(r, "Liste tables EDS")
@@ -189,6 +198,9 @@ def eds_preview(
     Preview d’une table parquet avec limite choisie par l’utilisateur.
     GET /eds/table/{name}?limit=...
     """
+
+    console.print("🔄 [bold cyan]Veuillez patientez quelques instants....[/bold cyan]")
+
     url = f"{CONVERTER_API_URL}/eds/table/{name}"
     r = requests.get(url, params={"limit": limit})
     _raise_if_error(r, "Preview table EDS")
@@ -215,7 +227,11 @@ def eds_preview(
 
 @app.command()
 def stats():
+
     """Affiche les stats EDS."""
+
+    console.print("🔄 [bold cyan]Chargement des stats en cours...[/bold cyan]")
+
     url = f"{CONVERTER_API_URL}/stats"
     r = requests.get(url, timeout=15)
 
@@ -251,6 +267,9 @@ def last_run():
 @app.command()
 def runs():
     """Liste l’historique des runs (archives)."""
+
+    console.print("🔄 [bold cyan]Chargement de l'historique...[/bold cyan]")
+
     url = f"{CONVERTER_API_URL}/report/runs"
     r = requests.get(url)
     _raise_if_error(r, "Liste runs")
@@ -285,6 +304,9 @@ def download_run(name: str, out: Optional[str] = typer.Option(None, "--out", hel
 @app.command()
 def download_last_run(out: Optional[str] = typer.Option(None, "--out", help="Chemin de sortie")):
     """Télécharge le last_run.json le plus récent."""
+
+    console.print("🔄 [bold cyan]Téléchargement du last run en cours...[/bold cyan]")
+
     url = f"{CONVERTER_API_URL}/report/last-run"
     r = requests.get(url)
     _raise_if_error(r, "Téléchargement last_run")
