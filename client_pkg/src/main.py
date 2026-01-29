@@ -375,6 +375,79 @@ def edsan_to_fhir_push():
     
     console.print(table)
 
+@app.command()
+def last_export():
+    """Affiche le dernier rapport d'exportation (EDSan -> FHIR)."""
+    url = f"{CONVERTER_API_URL}/report/last-export"
+    r = requests.get(url)
+    _raise_if_error(r, "Lecture last_export")
+    console.print_json(json.dumps(r.json(), ensure_ascii=False))
+
+
+@app.command()
+def export_runs():
+    """Liste l’historique des exports archivés (EDSan -> FHIR)."""
+    console.print("🔄 [bold cyan]Chargement de l'historique des exports...[/bold cyan]")
+
+    url = f"{CONVERTER_API_URL}/report/export-runs"
+    r = requests.get(url)
+    _raise_if_error(r, "Liste export_runs")
+
+    items = r.json()
+    if not items:
+        console.print("[yellow]Aucun historique d'export trouvé.[/yellow]")
+        return
+
+    t = Table(title="Historique des exports (EDSan -> FHIR)", box=box.SIMPLE_HEAVY)
+    t.add_column("Nom du fichier", style="magenta")
+    t.add_column("Taille", justify="right")
+    
+    for it in items:
+        t.add_row(it.get("name", "?"), f"{it.get('size', 0):,} octets")
+    
+    console.print(t)
+
+@app.command()
+def download_export_run(
+    name: str, 
+    out: Optional[str] = typer.Option(None, "--out", help="Chemin de sortie local")
+    ):
+    """ Télécharge un rapport d'export archivé spécifique."""
+    url = f"{CONVERTER_API_URL}/report/export-run/{name}"
+    r = requests.get(url, stream=True)
+    _raise_if_error(r, f"Téléchargement de l'export {name}")
+
+    out_path = Path(out) if out else Path(name)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(out_path, "wb") as f:
+        for chunk in r.iter_content(chunk_size=1024 * 256):
+            if chunk:
+                f.write(chunk)
+
+    console.print(f"[bold green]✅ Rapport d'export téléchargé -> {out_path.resolve()}[/bold green]")
+
+
+@app.command()
+def download_last_export(
+    out: Optional[str] = typer.Option(None, "--out", help="Chemin de sortie local")
+):
+    """Télécharge le rapport d'export le plus récent (last_export_fhir.json)."""
+    console.print("🔄 [bold cyan]Téléchargement du dernier rapport d'export...[/bold cyan]")
+
+    url = f"{CONVERTER_API_URL}/report/last-export"
+    r = requests.get(url)
+    _raise_if_error(r, "Téléchargement last_export")
+
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_path = Path(out) if out else Path(f"last_export_{ts}.json")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(r.json(), f, ensure_ascii=False, indent=2)
+
+    console.print(f"[bold green]✅ Dernier rapport d'export téléchargé -> {out_path.resolve()}[/bold green]")
+
 if __name__ == "__main__":
     app()
 
