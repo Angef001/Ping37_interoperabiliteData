@@ -27,7 +27,7 @@ router = APIRouter()
  
 FHIR_SERVER_URL = os.getenv("FHIR_SERVER_URL", "http://localhost:8080/fhir")
 FHIR_ACCEPT_HEADERS = {"Accept": "application/fhir+json"}
-
+REPORTS_DIR_EXPORT_PATH = Path(os.getenv("REPORTS_DIR", REPORTS_DIR))
 
 
 #                --- ENDPOINT : FHIR (ENTREPOT) -> EDS ---
@@ -432,3 +432,60 @@ def edsan_to_fhir_warehouse():
  
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+# --- ENDPOINTS : Rapports d'Export (EDSan -> FHIR) ---
+
+@router.get("/report/last-export", tags=["Report"])
+async def get_last_export_report():
+    """
+    Retourne le dernier rapport d'exportation (EDSan -> FHIR) 
+    stocké dans reports_export/exports/last_export_fhir.json.
+    """
+    # On cible le sous-dossier 'exports' créé par save_export_report
+    report_path = Path(REPORTS_DIR_EXPORT_PATH) / "last_export_fhir.json"
+    
+    if not report_path.exists():
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Fichier last_export_fhir.json introuvable. L'API a cherché ici : {report_path}"
+        )
+
+    with open(report_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+@router.get("/report/export-runs", tags=["Report"])
+async def list_export_runs():
+    """
+    Liste l'historique des exports archivés dans le sous-dossier exports/.
+    """
+    export_runs_dir = Path(REPORTS_DIR_EXPORT_PATH) / "exports"
+    
+    if not export_runs_dir.exists():
+        return []
+
+    # On cherche les fichiers datés export_YYYYMMDD_HHMMSS.json
+    files = sorted(export_runs_dir.glob("export_*.json"), reverse=True)
+    
+    # On filtre pour ne pas inclure le 'last_export_fhir.json' dans la liste d'historique
+    return [
+        {"name": f.name, "size": f.stat().st_size} 
+        for f in files if f.name != "last_export_fhir.json"
+    ]
+
+
+@router.get("/report/export-run/{name}", tags=["Report"])
+async def download_export_run(name: str):
+    """
+    Télécharge un rapport d'export archivé spécifique.
+    """
+    # Sécurité anti-traversal
+    if ".." in name or "/" in name or "\\" in name:
+        raise HTTPException(status_code=400, detail="Nom de fichier invalide.")
+        
+    path = Path(REPORTS_DIR_EXPORT_PATH) / "exports" / name
+    
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Rapport d'export introuvable.")
+        
+    return FileResponse(str(path), filename=name, media_type="application/json")

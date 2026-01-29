@@ -123,7 +123,7 @@ chu-fhir warehouse-convert-patient --id <FHIR_ID>
 * **Export ZIP**
 Convertit les données EDSan en bundles FHIR et génère un fichier ZIP :
 ```bash
-chu-fhir edsan-to-fhir-zip --output /chemin/vers/export.zip
+chu-fhir edsan-to-fhir-zip --output /app/chemin/vers/export.zip
 ```
 
 * **Push vers l'entrepôt FHIR**
@@ -131,8 +131,6 @@ Convertit et envoie directement les bundles vers le serveur FHIR :
 ```bash
 chu-fhir edsan-to-fhir-push
 ```
-
-**Note :** L'API doit être démarrée (`uvicorn app.main:app --reload`) avant d'utiliser ces commandes.
 
 
 ### 📊 4. Gestion de l'EDS
@@ -165,19 +163,55 @@ chu-fhir stats
 
 Gérez l'historique des exécutions.
 
-* **Voir le dernier rapport de run** :
+* **Consulter le dernier rapport d'importation** :
 ```bash
 chu-fhir last-run
 
 ```
 
 
-* **Télécharger un run archivé (ZIP)** :
+* **Télécharger un rapport d'import spécifique** :
 ```bash
-chu-fhir download-run <nom_du_zip> --out ./ma_destination/
+chu-fhir download-run <nom_du_rapport> --out /app/ma_destination/
+
+```
+* **Afficher l'historique des logs d'import** 
+```bash
+chu-fhir runs
 
 ```
 
+* **Consulter le dernier rapport d'exportation** 
+Affiche les statistiques sur les bundles générés et les types de ressources poussés vers FHIR :
+
+```bash
+chu-fhir last-export
+
+```
+
+* **Lister l'historique des exports** 
+Affiche la liste des anciens exports archivés dans le dossier de rapports :
+
+```bash
+chu-fhir export-runs
+
+```
+
+* **Télécharger un rapport d'export spécifique** 
+Récupère un fichier de rapport archivé sur votre machine locale :
+
+```bash
+chu-fhir download-export-run [NOM_DU_FICHIER] --out /app/download/bilan.json
+
+```
+
+* **Télécharger le dernier rapport d'export (Auto-daté)** 
+Télécharge une copie locale du rapport le plus récent avec un timestamp automatique :
+
+```bash
+chu-fhir download-last-export
+
+```
 ---
 
 ## 📁 Structure du Projet
@@ -185,36 +219,3 @@ chu-fhir download-run <nom_du_zip> --out ./ma_destination/
 * `src/main.py` : Logique principale utilisant **Typer** pour le CLI et **Rich** pour les affichages en tableau.
 * `pyproject.toml` : Configuration du package et définition du point d'entrée `chu-fhir`.
 * `Dockerfile` : Image basée sur `python:3.12-slim` pour un déploiement léger.
- 
-
-## Commande pour tester la conversion fhir-eds
-
-* Convertir N patient(N peut etre egale à 50, 3, 10, etc selon votre envie)
-    'chu-fhir warehouse-convert --patient-limit N'
-
-* Convertir tout l'entrepot
-    'chu-fhir warehouse-convert ou chu-fhir warehouse-convert --patient-limit 0'
-
-* Convertir un patient 
-    'chu-fhir warehouse-convert-patient --id <id>'
-
-* Convertir plusieurs patients en parquet
-    ' chu-fhir --ids <id> --ids <id> --ids <id> (vous pouvez mettre autant d'ids que vous souhaitez)
-
-* Afficher l'historique 
-    'chu-fhir runs'
-
-* Telecharger un fichier last_run
-    'chu-fhir download-run  <nom du fichier>'
-
-
-* Afficher les stats de l'eds
-    'chu-fhir stats'
-
-
-* Afficher les tables de l'eds
-    'chu-fhir eds-tables'
-
-
-Pour consulter les nouvelles tables parquet, consluter le dossier data/eds
-Pour consulter l'historique des runs, consulter le dossier data/reports/runs

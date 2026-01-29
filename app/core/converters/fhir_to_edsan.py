@@ -37,6 +37,7 @@ FHIR_DIR = os.path.join(PROJECT_ROOT, "synthea", "output", "fhir")
 # Keep the same defaults as the former build_eds_with_fhir.py
 EDS_DIR = os.path.join(PROJECT_ROOT, "data", "eds")
 REPORTS_DIR = os.path.join(PROJECT_ROOT, "data", "reports")
+REPORTS_DIR_EXPORT = os.path.join(PROJECT_ROOT, "data", "reports_export")
 
 
 # =============================================================================
