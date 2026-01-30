@@ -130,6 +130,71 @@ async def convert_fhir_warehouse_to_edsan(payload: dict | None = None):
 
     return {"status": "success", "data": report}
 
+@router.post("/convert/fhir-warehouse-patients-to-edsan", tags=["Conversion"])
+async def convert_list_patients_from_warehouse(payload: dict):
+    """
+    Convertit une LISTE de patients depuis l’entrepôt.
+    payload: {"patient_ids": ["id1","id2",...], "page_size": 200 (optionnel)}
+    """
+    patient_ids = payload.get("patient_ids") or payload.get("patients") or payload.get("ids")
+    if not patient_ids or not isinstance(patient_ids, list):
+        raise HTTPException(status_code=400, detail="patient_ids (liste) requis. Exemple: {'patient_ids': ['id1','id2']}")
+
+    page_size = int(payload.get("page_size", 200))
+
+    run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    started_at = datetime.now().isoformat()
+
+    per_patient = []
+    ok = 0
+    ko = 0
+
+    for pid in patient_ids:
+        try:
+            everything_url = f"{FHIR_SERVER_URL}/Patient/{pid}/$everything"
+            bundle = _fetch_bundle_all_pages(everything_url, params={"_count": page_size})
+
+            # On convertit sans écrire last_run à chaque patient
+            _ = fhir_to_edsan.process_bundle(bundle, write_report=False)
+
+            summary = summarize_bundle(bundle)
+
+            per_patient.append({
+                "patient_id": pid,
+                "status": "success",
+                "entries_total": summary["entries_total"],
+                "resources_per_type": summary["resources_per_type"],
+            })
+            ok += 1
+
+        except Exception as e:
+            per_patient.append({
+                "patient_id": pid,
+                "status": "failed",
+                "error": str(e),
+            })
+            ko += 1
+
+    ended_at = datetime.now().isoformat()
+
+    report = {
+        "run_id": run_id,
+        "mode": "warehouse_list",
+        "warehouse_url": FHIR_SERVER_URL,
+        "page_size": page_size,
+        "started_at": started_at,
+        "ended_at": ended_at,
+        "patients_total": len(patient_ids),
+        "patients_success": ok,
+        "patients_failed": ko,
+        "patients": per_patient,
+    }
+
+    # ✅ écrit une seule fois last_run + archive
+    from app.utils.helpers import write_last_run_report
+    write_last_run_report(report, REPORTS_DIR)
+
+    return {"status": "success", "data": report}
 
 @router.post("/convert/fhir-warehouse-patient-to-edsan", tags=["Conversion"])
 async def convert_one_patient_from_warehouse(payload: dict):
@@ -352,9 +417,9 @@ def edsan_to_fhir_warehouse():
     """
     try:
         result = export_eds_to_fhir(
-            eds_dir=os.getenv("EDS_DIR", "data/eds"),
-            output_dir=os.getenv("OUTPUT_DIR", "exports_eds_fhir"),  # optionnel : mets un dossier si tu veux aussi garder les JSON
-            mapping_path=None,
+            eds_dir=os.getenv("EDS_DIR", "eds"),
+            output_dir=os.getenv("FHIR_OUTPUT_DIR", "exports_eds_fhir"),  # optionnel : mets un dossier si tu veux aussi garder les JSON
+            mapping_path=os.getenv("FHIR_MAPPING_PATH"),
             fhir_base_url="http://localhost:8080/fhir",  # <-- mets ici l'URL réelle
             print_summary=False,
         )
