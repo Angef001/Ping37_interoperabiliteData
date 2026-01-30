@@ -21,57 +21,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_DIR)))
 
 MAPPING_FILE = os.path.join(PROJECT_ROOT, "app", "core", "config", "mapping.json")
 FHIR_DIR = os.path.join(PROJECT_ROOT, "synthea", "output", "fhir")
-EDS_DIR = os.path.join(PROJECT_ROOT, "data", "eds")
-REPORTS_DIR = os.path.join(PROJECT_ROOT, "data", "reports")
-
-
-# =============================================================================
-# OUTILS TYPES / NORMALISATION (NEW)
-# =============================================================================
-
-def _dtype_from_str(s: str):
-    """
-    Convertit une string de mapping.json (_schemas) en dtype Polars.
-    """
-    if s is None:
-        return None
-    s = str(s)
-
-    return {
-        "Utf8": pl.Utf8,
-        "String": pl.Utf8,
-        "str": pl.Utf8,
-
-        "Int64": pl.Int64,
-        "Int32": pl.Int32,
-
-        "Float64": pl.Float64,
-        "Float32": pl.Float32,
-
-        "Boolean": pl.Boolean,
-
-        "Date": pl.Date,
-        "Datetime": pl.Datetime,
-    }.get(s, None)
-
-
-def _normalize_value(val, expected_dtype_str: str | None):
-    """
-    Normalise une valeur brute extraite d'un JSON FHIR selon le type attendu.
-    Le but principal est d'éviter les colonnes mixtes (int/str) qui font planter pl.DataFrame(rows).
-    """
-    # Si le JSON renvoie des structures (dict/list), on stringify
-    if isinstance(val, (dict, list)):
-        return json.dumps(val, ensure_ascii=False)
-
-    # Si attendu en texte -> tout en str
-    if expected_dtype_str in ("Utf8", "String", "str"):
-        if val is None:
-            return None
-        return str(val)
-
-    return val
-
+EDS_DIR = os.path.join(PROJECT_ROOT, "eds")
 
 # =============================================================================
 # FONCTION PRINCIPALE ETL
@@ -187,25 +137,7 @@ def build_eds(
 
     for table_name in table_names:
         rows = buffers.get(table_name, [])
-
-        # colonnes attendues d'après mapping.json (déjà calculé chez toi)
-        cols = expected_columns.get(table_name, [])
-
-        if not rows:
-            # dataframe vide avec colonnes attendues
-            dfs[table_name] = pl.DataFrame({c: [] for c in cols}) if cols else pl.DataFrame()
-            continue
-
-        # ✅ Forcer toutes les colonnes en string au moment de construire le DF
-        # (évite "int puis str" -> crash). Ensuite, enforce_schema recast proprement.
-        schema = {c: pl.Utf8 for c in cols} if cols else None
-
-        dfs[table_name] = pl.from_dicts(
-            rows,
-            schema=schema,               # force Utf8 pour les colonnes attendues
-            infer_schema_length=None     # scanne tout au lieu de 100 premières lignes
-        )
-
+        dfs[table_name] = pl.DataFrame(rows , infer_schema_length=None) if rows else pl.DataFrame()
 
     # -------------------------------------------------------------------------
     # ETAPE 1 : NETTOYAGE DES IDENTIFIANTS
@@ -241,8 +173,9 @@ def build_eds(
                 "male": "M", "female": "F",
                 "other": "I", "unknown": "I"
             }
+            # Utilisation de replace pour stabilite
             df_pat = df_pat.with_columns(
-                pl.col("PATSEX").replace_strict(gender_map, default="I").alias("PATSEX")
+                pl.col("PATSEX").replace(gender_map, default="I").alias("PATSEX")
             )
 
         # Calcul de l'age a partir de la date de naissance
