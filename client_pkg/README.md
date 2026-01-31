@@ -120,7 +120,7 @@ chu-fhir warehouse-convert-patient --id <FHIR_ID>
 
 * **Convertir plusieurs patients en parquet** :
 ```bash
-    ' chu-fhir --ids <id> --ids <id> --ids <id> (vous pouvez mettre autant d'ids que vous souhaitez)
+    chu-fhir warehouse-convert-patients --ids <id> --ids <id> --ids <id> 
 ```
 
 ### ⚙️ 3. Conversion d'EDSan vers l'entrepot FHIR

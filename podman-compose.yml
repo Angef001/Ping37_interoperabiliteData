@@ -17,16 +17,16 @@ services:
       context: .
       dockerfile: app/Dockerfile
     environment:
-      - FHIR_URL=http://127.0.0.1:8080/fhir
-      - EDS_DIR=/app/data/eds
-      - OUTPUT_DIR=/app/output
-      - REPORTS_DIR=/app/data/reports_export
+      - FHIR_SERVER_URL=http://127.0.0.1:8080/fhir
+      - EDS_DIR=/app/eds
+      - OUTPUT_DIR=/app/output_export
+      - REPORTS_DIR_EXPORT=/app/data/reports_export
     volumes:
-    #  - ./data/eds:/app/data/eds:Z
+      - ./eds:/app/eds:Z
     #  - ./data/reports:/app/data/reports:Z
     #  - ./data/reports_export:/app/data/reports_export/:Z
-    #  - ./exports_eds_fhir:/app/output:Z
-    #  - ./exports_eds_fhir_zip:/app/output_zip:Z
+    #  - ./exports_eds_fhir:/app/output_export:Z
+    #  - ./exports_eds_fhir_zip:/app/output_export_zip:Z
       - .:/app:Z
     depends_on:
       - fhir-server
@@ -38,18 +38,18 @@ services:
       context: ./client_pkg
       dockerfile: Dockerfile
     environment:
-      - FHIR_URL=http://127.0.0.1:8080/fhir
+      - FHIR_SERVER_URL=http://127.0.0.1:8080/fhir
       - PYTHONPATH=.
-      - REPORTS_DIR=/app/data/reports_export
-      - EDS_DIR=/app/data/eds
-      - OUTPUT_DIR=/app/output
+      - REPORTS_DIR_EXPORT=/app/data/reports_export
+      - EDS_DIR=/app/eds
+      - OUTPUT_DIR=/app/output_export
     volumes:
       #- ./exports_eds_fhir_zip:/app/output_zip:Z 
-      #- ./data/eds:/app/data/eds:Z
+      - ./eds:/app/eds:Z
       #- ./data/reports:/app/data/reports:Z
       #- ./data/reports_export:/app/data/reports_export/:Z
-      #- ./exports_eds_fhir:/app/output:Z
-      #- ./exports_eds_fhir_zip:/app/output_zip:Z
+      #- ./exports_eds_fhir:/app/output_export:Z
+      #- ./exports_eds_fhir_zip:/app/output_export_zip:Z
       - .:/app:Z
     depends_on:
       - fhir-server
