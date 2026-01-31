@@ -16,10 +16,10 @@ RUN mkdir -p /data/reports
 RUN mkdir -p /data/reports_export
 
 # Créer le dossier de stockage des fichiers au format fhir
-RUN mkdir -p /app/output
+RUN mkdir -p /app/output_export
 
 # Créer le dossier de stockage de dossiers format zip contenant des données au format fhir
-RUN mkdir -p /app/output_zip
+RUN mkdir -p /app/output_export_zip
 
 # On garde le conteneur ouvert pour pouvoir taper des commandes
 CMD ["tail", "-f", "/dev/null"]

@@ -33,10 +33,10 @@ RUN mkdir -p /data/reports
 RUN mkdir -p /data/reports_export
 
 # Créer le dossier de stockage des fichiers au format fhir
-RUN mkdir -p /app/output
+RUN mkdir -p /app/output_export
 
 # Créer le dossier de stockage de dossiers format zip contenant des données au format fhir
-RUN mkdir -p /app/output_zip
+RUN mkdir -p /app/output_export_zip
 
 # Exposer le port sur lequel FastAPI va tourner
 EXPOSE 8000

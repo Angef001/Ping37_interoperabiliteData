@@ -27,7 +27,8 @@ router = APIRouter()
  
 FHIR_SERVER_URL = os.getenv("FHIR_SERVER_URL", "http://localhost:8080/fhir")
 FHIR_ACCEPT_HEADERS = {"Accept": "application/fhir+json"}
-REPORTS_DIR_EXPORT_PATH = Path(os.getenv("REPORTS_DIR", REPORTS_DIR_EXPORT))
+REPORTS_DIR_EXPORT_PATH = Path(os.getenv("REPORTS_DIR_EXPORT", REPORTS_DIR_EXPORT))
+EDS_DIR = Path(os.getenv("EDS_DIR", EDS_DIR))
 
 
 #                --- ENDPOINT : FHIR (ENTREPOT) -> EDS ---
@@ -418,9 +419,9 @@ def edsan_to_fhir_warehouse():
     try:
         result = export_eds_to_fhir(
             eds_dir=os.getenv("EDS_DIR", "eds"),
-            output_dir=os.getenv("FHIR_OUTPUT_DIR", "exports_eds_fhir"),  # optionnel : mets un dossier si tu veux aussi garder les JSON
+            output_dir=os.getenv("FHIR_OUTPUT_DIR", "exports_eds_fhir"),  # optionnel 
             mapping_path=os.getenv("FHIR_MAPPING_PATH"),
-            fhir_base_url="http://localhost:8080/fhir",  # <-- mets ici l'URL réelle
+            fhir_base_url="http://localhost:8080/fhir",  
             print_summary=False,
         )
  
