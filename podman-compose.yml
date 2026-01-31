@@ -8,7 +8,7 @@ services:
       context: ./entrepot_fhir/hapi-fhir-jpaserver-starter-master
       dockerfile: Dockerfile
     volumes:
-      - fhir-data:/usr/local/tomcat/data/hapi:Z
+      - ./entrepot_fhir/database:/target/database:Z
 
   api-converter:
     image: api-converter:latest
@@ -30,33 +30,6 @@ services:
       - .:/app:Z
     depends_on:
       - fhir-server
-
-  cli-client:
-    image: cli-client:latest
-    network_mode: host
-    build:
-      context: ./client_pkg
-      dockerfile: Dockerfile
-    environment:
-      - FHIR_SERVER_URL=http://127.0.0.1:8080/fhir
-      - PYTHONPATH=.
-      - REPORTS_DIR_EXPORT=/app/data/reports_export
-      - EDS_DIR=/app/eds
-      - OUTPUT_DIR=/app/output_export
-    volumes:
-      #- ./exports_eds_fhir_zip:/app/output_zip:Z 
-      - ./eds:/app/eds:Z
-      #- ./data/reports:/app/data/reports:Z
-      #- ./data/reports_export:/app/data/reports_export/:Z
-      #- ./exports_eds_fhir:/app/output_export:Z
-      #- ./exports_eds_fhir_zip:/app/output_export_zip:Z
-      - .:/app:Z
-    depends_on:
-      - fhir-server
-    tty: true
-
-volumes:
-  fhir-data:
 
 networks:
   default:
