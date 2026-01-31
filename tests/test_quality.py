@@ -6,8 +6,8 @@ import glob
 # CONFIGURATION
 # =============================================================================
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-EDS_DIR = os.path.join(BASE_DIR, "data", "eds") 
-# EDS_DIR = r"C:\Projets\Ping\data\eds"
+EDS_DIR = os.path.join(BASE_DIR, "eds") 
+# EDS_DIR = r"C:\Projets\Ping\eds"
 
 # =============================================================================
 # UTILITAIRES D'AFFICHAGE

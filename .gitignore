@@ -8,6 +8,7 @@ __pycache__/
 .venv/
 venv/
 ENV/
+Synthea/
 
 # --- Données (EDS) ---
 # On ne pousse pas les fichiers de données massifs ou sensibles
