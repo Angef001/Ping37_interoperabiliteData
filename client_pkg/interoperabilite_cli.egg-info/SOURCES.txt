@@ -8,5 +8,6 @@ interoperabilite_cli.egg-info/requires.txt
 interoperabilite_cli.egg-info/top_level.txt
 src/__init__.py
 src/edsan_filter.py
+src/edsan_filter_to_fhir.py
 src/edsan_to_fhir_cli.py
 src/main.py
