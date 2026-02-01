@@ -1,7 +1,8 @@
-import polars as pl
-import os
-from pathlib import Path
+from __future__ import annotations
+
 import argparse
+from pathlib import Path
+import polars as pl
 
 # =============================================================================
 # CONFIGURATION
@@ -9,13 +10,14 @@ import argparse
 CURRENT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = CURRENT_DIR.parents[1]
 
-def display_tables(eds_dir: Path):
+
+def display_tables(eds_dir: Path) -> None:
     """
-    Parcourt les fichiers Parquet attendus dans le dossier EDS 
-    et affiche un aperçu de leur contenu (dimensions et premières lignes).
+    Parcourt les fichiers Parquet attendus dans le dossier EDS
+    et affiche un aperçu de leur contenu.
     """
     print(f"Inspection du dossier EDS : {eds_dir}\n")
-    
+
     if not eds_dir.exists():
         print(f"[ERREUR] Le dossier EDS est introuvable : {eds_dir}")
         return
@@ -46,7 +48,11 @@ def display_tables(eds_dir: Path):
 
         print()
 
-if __name__ == "__main__":
+
+# =============================================================================
+# MODE SCRIPT (python -m ...)
+# =============================================================================
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--eds-dir",
@@ -57,3 +63,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     display_tables(args.eds_dir)
+
+
+if __name__ == "__main__":
+    main()
