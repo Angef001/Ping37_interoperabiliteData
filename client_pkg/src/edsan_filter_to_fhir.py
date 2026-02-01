@@ -168,7 +168,10 @@ def edsan_filter_to_fhir(
                 pct = (delta / a * 100.0) if a else 0.0
                 t.add_row(name, str(a), str(b), str(delta), f"{pct:.1f}%")
 
+            console.print()  
+            console.print()  
             console.print(t)
+            console.print()  
 
 
         # 2) Copie optionnelle vers dossier utilisateur (vérif)
@@ -183,6 +186,7 @@ def edsan_filter_to_fhir(
             eds_dir=str(tmp_dir),
             output_dir=str(Path(fhir_output_dir)),
             bundle_strategy=bundle_strategy,
+            print_summary=False,
         )
 
 
@@ -200,7 +204,10 @@ def edsan_filter_to_fhir(
             for k in sorted(rpt.keys()):
                 tf.add_row(k, str(rpt.get(k, 0)))
 
+            console.print()
+            console.print()    
             console.print(tf)
+            console.print()  
 
         if stats:
             out_dir = Path(fhir_output_dir)
@@ -255,12 +262,16 @@ def edsan_filter_to_fhir(
             if push_report["resources_pushed_failed"] and push_report["errors_preview"]:
                 console.print("[yellow]Exemples d'erreurs (max 10):[/yellow]")
                 for msg in push_report["errors_preview"]:
+                    console.print()  
                     console.print(f" - {msg}")
 
 
-
+        console.print()  
+        console.print()  
         typer.echo("✅ Filtre + export FHIR terminé")
+        console.print()  
         typer.echo(f"📦 FHIR écrit dans : {Path(fhir_output_dir).resolve()}")
+        console.print()  
         if filtered_output_dir:
             typer.echo(f"📂 EDS filtré (copie) : {Path(filtered_output_dir).resolve()}")
 
