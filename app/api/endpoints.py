@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request, UploadFile, File
 from app.core.converters.edsan_to_fhir import export_eds_to_fhir
 from app.core.models.edsan_models import PmsiModel, PatientModel
+from app.utils.helpers import snapshot_eds_counts, build_merge_report
 
 from app.core.converters import fhir_to_edsan
 from typing import List
@@ -29,6 +30,7 @@ FHIR_SERVER_URL = os.getenv("FHIR_SERVER_URL", "http://localhost:8080/fhir")
 FHIR_ACCEPT_HEADERS = {"Accept": "application/fhir+json"}
 REPORTS_DIR_EXPORT_PATH = Path(os.getenv("REPORTS_DIR_EXPORT", REPORTS_DIR_EXPORT))
 EDS_DIR = Path(os.getenv("EDS_DIR", EDS_DIR))
+EDS_DIR_CONV = Path(os.getenv("EDS_DIR_conv", EDS_DIR))  # fallback
 
 
 #                --- ENDPOINT : FHIR (ENTREPOT) -> EDS ---
@@ -40,7 +42,7 @@ EDS_DIR = Path(os.getenv("EDS_DIR", EDS_DIR))
     
 @router.post("/convert/fhir-warehouse-to-edsan", tags=["Conversion"])
 async def convert_fhir_warehouse_to_edsan(payload: dict | None = None):
-    
+
     patient_limit = 0
     page_size = 100
     if payload:
@@ -73,7 +75,6 @@ async def convert_fhir_warehouse_to_edsan(payload: dict | None = None):
     if not patient_ids:
         raise HTTPException(status_code=404, detail="Aucun Patient dans l'entrepôt FHIR.")
 
-
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     started_at = datetime.now().isoformat()
 
@@ -81,82 +82,38 @@ async def convert_fhir_warehouse_to_edsan(payload: dict | None = None):
     ok = 0
     ko = 0
 
-    # 2) Pour chaque patient : Patient/{id}/$everything -> Bundle patient complet -> process_bundle
+    # ✅ tables suivies (EDS conversion)
+    tracked_tables = ["biol.parquet", "doceds.parquet", "mvt.parquet", "pharma.parquet", "pmsi.parquet"]
+
+    # ✅ snapshot global AVANT conversion (dans EDS_DIR_CONV)
+    before_global = snapshot_eds_counts(EDS_DIR_CONV, tracked_tables)
+
+    # ✅ accumulateur incoming (candidats traités)
+    incoming_acc = {t: 0 for t in tracked_tables}
+
+    # 2) conversion patient par patient
     for pid in patient_ids:
         try:
             everything_url = f"{FHIR_SERVER_URL}/Patient/{pid}/$everything"
             bundle = _fetch_bundle_all_pages(everything_url, params={"_count": page_size})
 
-            # IMPORTANT: on évite d’écrire last_run à chaque patient
-            _ = fhir_to_edsan.process_bundle(bundle, write_report=False)
+            # ✅ conversion écrite dans EDS_DIR_CONV (data/eds)
+            conv = fhir_to_edsan.process_bundle(bundle, eds_dir=str(EDS_DIR_CONV), write_report=False)
 
-            summary = summarize_bundle(bundle)
+            # ✅ addition incoming_rows uniquement
+            for r in (conv.get("merge") or conv.get("merge_report") or []):
+                t = r.get("table")
+                if not t:
+                    continue
 
-            per_patient.append({
-                "patient_id": pid,
-                "status": "success",
-                "entries_total": summary["entries_total"],        # total entries
-                "resources_per_type": summary["resources_per_type"],  # détail par type
-            })
+                # si une table apparaît et n'était pas trackée
+                if t not in incoming_acc:
+                    incoming_acc[t] = 0
+                    tracked_tables.append(t)
+                    before_global[t] = snapshot_eds_counts(EDS_DIR_CONV, [t]).get(t, 0)
 
-            ok += 1
-        except Exception as e:
-            per_patient.append({
-                "patient_id": pid,
-                "status": "failed",
-                "error": str(e),
-            })
-            ko += 1
 
-    ended_at = datetime.now().isoformat()
-
-    # 3) Report GLOBAL (celui que tu veux: OK/KO, erreurs, traces)
-    report = {
-        "run_id": run_id,
-        "mode": "warehouse_all",
-        "warehouse_url": FHIR_SERVER_URL,
-        "patient_limit": patient_limit,
-        "page_size": page_size,
-        "started_at": started_at,
-        "ended_at": ended_at,
-        "patients_total": len(patient_ids),
-        "patients_success": ok,
-        "patients_failed": ko,
-        "patients": per_patient,
-    }
-
-    # archive + last_run.json (historique)
-    from app.utils.helpers import write_last_run_report
-    write_last_run_report(report, REPORTS_DIR)
-
-    return {"status": "success", "data": report}
-
-@router.post("/convert/fhir-warehouse-patients-to-edsan", tags=["Conversion"])
-async def convert_list_patients_from_warehouse(payload: dict):
-    """
-    Convertit une LISTE de patients depuis l’entrepôt.
-    payload: {"patient_ids": ["id1","id2",...], "page_size": 200 (optionnel)}
-    """
-    patient_ids = payload.get("patient_ids") or payload.get("patients") or payload.get("ids")
-    if not patient_ids or not isinstance(patient_ids, list):
-        raise HTTPException(status_code=400, detail="patient_ids (liste) requis. Exemple: {'patient_ids': ['id1','id2']}")
-
-    page_size = int(payload.get("page_size", 200))
-
-    run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-    started_at = datetime.now().isoformat()
-
-    per_patient = []
-    ok = 0
-    ko = 0
-
-    for pid in patient_ids:
-        try:
-            everything_url = f"{FHIR_SERVER_URL}/Patient/{pid}/$everything"
-            bundle = _fetch_bundle_all_pages(everything_url, params={"_count": page_size})
-
-            # On convertit sans écrire last_run à chaque patient
-            _ = fhir_to_edsan.process_bundle(bundle, write_report=False)
+                incoming_acc[t] += int(r.get("incoming_rows", 0) or 0)
 
             summary = summarize_bundle(bundle)
 
@@ -178,6 +135,121 @@ async def convert_list_patients_from_warehouse(payload: dict):
 
     ended_at = datetime.now().isoformat()
 
+    # ✅ snapshot global APRÈS conversion (dans EDS_DIR_CONV)
+    after_global = snapshot_eds_counts(EDS_DIR_CONV, tracked_tables)
+
+    # ✅ merge_report final
+    merge_report = []
+    for t in sorted(set(tracked_tables)):
+        before_rows = int(before_global.get(t, 0) or 0)
+        after_rows = int(after_global.get(t, 0) or 0)
+        incoming_rows = int(incoming_acc.get(t, 0) or 0)
+        added_rows = after_rows - before_rows
+
+        merge_report.append({
+            "table": t,
+            "before_rows": before_rows,
+            "incoming_rows": incoming_rows,
+            "after_rows": after_rows,
+            "added_rows": added_rows,
+        })
+
+    report = {
+        "run_id": run_id,
+        "mode": "warehouse_all",
+        "warehouse_url": FHIR_SERVER_URL,
+        "patient_limit": patient_limit,
+        "page_size": page_size,
+        "started_at": started_at,
+        "ended_at": ended_at,
+        "patients_total": len(patient_ids),
+        "patients_success": ok,
+        "patients_failed": ko,
+        "patients": per_patient,
+        "merge_report": merge_report,
+    }
+
+    from app.utils.helpers import write_last_run_report
+    write_last_run_report(report, REPORTS_DIR)
+
+    return {"status": "success", "data": report}
+
+
+@router.post("/convert/fhir-warehouse-patients-to-edsan", tags=["Conversion"])
+async def convert_list_patients_from_warehouse(payload: dict):
+    patient_ids = payload.get("patient_ids") or payload.get("patients") or payload.get("ids")
+    if not patient_ids or not isinstance(patient_ids, list):
+        raise HTTPException(
+            status_code=400,
+            detail="patient_ids (liste) requis. Exemple: {'patient_ids': ['id1','id2']}"
+        )
+
+    page_size = int(payload.get("page_size", 200))
+
+    # Optionnel: reset (si tu veux un run propre)
+    reset = bool(payload.get("reset", False))
+    tables = ["mvt.parquet", "biol.parquet", "pharma.parquet", "doceds.parquet", "pmsi.parquet"]
+
+    if reset:
+        from pathlib import Path
+        for t in tables:
+            p = Path(EDS_DIR_CONV) / t
+            if p.exists():
+                p.unlink()
+
+    from app.utils.helpers import snapshot_eds_counts, build_merge_report
+
+    run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    started_at = datetime.now().isoformat()
+
+    # ✅ Snapshot AVANT
+    before_counts = snapshot_eds_counts(EDS_DIR_CONV, tables)
+
+    per_patient = []
+    ok = 0
+    ko = 0
+
+    # ✅ incoming accumulator
+    incoming_acc = {t: 0 for t in tables}
+
+    for pid in patient_ids:
+        try:
+            everything_url = f"{FHIR_SERVER_URL}/Patient/{pid}/$everything"
+            bundle = _fetch_bundle_all_pages(everything_url, params={"_count": page_size})
+
+            conv = fhir_to_edsan.process_bundle(
+                bundle,
+                eds_dir=str(EDS_DIR_CONV),
+                write_report=False
+            )
+
+            # ✅ On accumule incoming_rows (tel que process_bundle le renvoie)
+            for r in (conv.get("merge") or conv.get("merge_report") or []):
+                t = r.get("table")
+                if t in incoming_acc:
+                    incoming_acc[t] += int(r.get("incoming_rows", 0) or 0)
+
+            summary = summarize_bundle(bundle)
+            per_patient.append({
+                "patient_id": pid,
+                "status": "success",
+                "entries_total": summary["entries_total"],
+                "resources_per_type": summary["resources_per_type"],
+            })
+            ok += 1
+
+        except Exception as e:
+            per_patient.append({"patient_id": pid, "status": "failed", "error": str(e)})
+            ko += 1
+
+    ended_at = datetime.now().isoformat()
+
+    # ✅ Snapshot APRÈS
+    after_counts = snapshot_eds_counts(EDS_DIR_CONV, tables)
+
+    # ✅ merge_report final cohérent
+    merge_report = build_merge_report(before_counts, after_counts, incoming_acc)
+
     report = {
         "run_id": run_id,
         "mode": "warehouse_list",
@@ -189,34 +261,56 @@ async def convert_list_patients_from_warehouse(payload: dict):
         "patients_success": ok,
         "patients_failed": ko,
         "patients": per_patient,
+        "merge_report": merge_report,
     }
 
-    # ✅ écrit une seule fois last_run + archive
     from app.utils.helpers import write_last_run_report
     write_last_run_report(report, REPORTS_DIR)
 
     return {"status": "success", "data": report}
 
+
 @router.post("/convert/fhir-warehouse-patient-to-edsan", tags=["Conversion"])
 async def convert_one_patient_from_warehouse(payload: dict):
-    """
-    Equivalent "1 fichier patient Synthea" mais depuis l’entrepôt.
-    payload: {"patient_id": "..."}
-    """
     pid = payload.get("patient_id")
     if not pid:
         raise HTTPException(status_code=400, detail="patient_id requis.")
 
+    page_size = int(payload.get("page_size", 200))
+    reset = bool(payload.get("reset", False))
+
+    tables = ["mvt.parquet", "biol.parquet", "pharma.parquet", "doceds.parquet", "pmsi.parquet"]
+
+    if reset:
+        from pathlib import Path
+        for t in tables:
+            p = Path(EDS_DIR_CONV) / t
+            if p.exists():
+                p.unlink()
+
+    from app.utils.helpers import snapshot_eds_counts, build_merge_report
+
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     started_at = datetime.now().isoformat()
 
+    before_counts = snapshot_eds_counts(EDS_DIR_CONV, tables)
+    incoming_acc = {t: 0 for t in tables}
+
     try:
         everything_url = f"{FHIR_SERVER_URL}/Patient/{pid}/$everything"
-        bundle = _fetch_bundle_all_pages(everything_url, params={"_count": 200})
+        bundle = _fetch_bundle_all_pages(everything_url, params={"_count": page_size})
 
-        _ = fhir_to_edsan.process_bundle(bundle, write_report=False)
+        conv = fhir_to_edsan.process_bundle(bundle, eds_dir=str(EDS_DIR_CONV), write_report=False)
+
+        for r in (conv.get("merge") or conv.get("merge_report") or []):
+            t = r.get("table")
+            if t in incoming_acc:
+                incoming_acc[t] += int(r.get("incoming_rows", 0) or 0)
 
         summary = summarize_bundle(bundle)
+
+        after_counts = snapshot_eds_counts(EDS_DIR_CONV, tables)
+        merge_report = build_merge_report(before_counts, after_counts, incoming_acc)
 
         report = {
             "run_id": run_id,
@@ -227,6 +321,7 @@ async def convert_one_patient_from_warehouse(payload: dict):
             "patient_id": pid,
             "entries_total": summary["entries_total"],
             "resources_per_type": summary["resources_per_type"],
+            "merge_report": merge_report,
         }
 
         from app.utils.helpers import write_last_run_report
@@ -237,7 +332,6 @@ async def convert_one_patient_from_warehouse(payload: dict):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Erreur conversion patient {pid}: {str(e)}")
 
- 
  
 # --- ENDPOINTS : Consultation EDS (Parquet) ---
 @router.get("/eds/tables", tags=["EDS"])
