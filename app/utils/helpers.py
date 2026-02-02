@@ -49,6 +49,55 @@ def clean_id(raw_id: Optional[str]) -> str:
         raw_id,
     )
  
+
+def _normalize_value(value, expected_dtype: str | None):
+    """
+    Normalise une valeur brute issue du JSON FHIR selon le type attendu (_schemas).
+    Objectif : éviter les colonnes Polars à types mixtes.
+    """
+
+    if value is None:
+        return None
+
+    # Listes → valeur atomique (1er élément)
+    if isinstance(value, list):
+        if not value:
+            return None
+        value = value[0]
+
+    # Dictionnaires → JSON string (cas FHIR complexe)
+    if isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False)
+
+    if expected_dtype is None:
+        return value
+
+    try:
+        dtype = expected_dtype.lower()
+
+        if dtype in ("utf8", "string", "str"):
+            return str(value)
+
+        if dtype in ("int64", "int", "integer"):
+            return int(value)
+
+        if dtype in ("float64", "float", "double"):
+            return float(value)
+
+        if dtype in ("bool", "boolean"):
+            return bool(value)
+
+        if dtype in ("date", "datetime"):
+            # on garde la string → conversion Polars plus tard
+            return str(value)
+
+    except Exception:
+        # fallback sécurisé
+        return None
+
+    return value
+
+
  
 def format_fhir_date(date_val: Optional[Union[str, datetime]]) -> Optional[str]:
     """Normalise les dates pour l'affichage ou le stockage.
