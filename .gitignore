@@ -10,6 +10,7 @@ venv/
 ENV/
 .env/
 Synthea/
+synthea/
 
 # --- Données (EDS) ---
 # On ne pousse pas les fichiers de données massifs ou sensibles
