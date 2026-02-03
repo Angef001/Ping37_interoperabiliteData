@@ -490,3 +490,49 @@ async def download_export_run(name: str):
         raise HTTPException(status_code=404, detail="Rapport d'export introuvable.")
         
     return FileResponse(str(path), filename=name, media_type="application/json")
+
+
+@router.delete("/eds/table/{name}/delete", tags=["EDS"])
+async def delete_eds_records(table: str, ids: List[str]):
+    """
+    Supprime une ou plusieurs lignes d'une table Parquet selon une liste d'IDs.
+    L'ID est supposé être dans la colonne 'id' ou 'patient_id'.
+    """
+    if not table.endswith(".parquet"):
+        table = f"{table}.parquet"
+
+    path = Path(EDS_DIR) / table
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"Table {table} introuvable.")
+
+    try:
+        # 1. Lecture de la table
+        df = pl.read_parquet(path)
+        
+        # 2. Identification de la colonne ID ('EVTID' ou 'PATID')
+        id_col = "PATID" if "PATID" in df.columns else "EVTID"
+        if id_col not in df.columns:
+            raise HTTPException(status_code=400, detail=f"Aucune colonne d'ID identifiée dans {table}.")
+
+        initial_count = df.height
+
+        # 3. Filtrage : on garde tout ce qui n'est PAS dans la liste d'IDs
+        df_filtered = df.filter(~pl.col(id_col).is_in(ids))
+        
+        final_count = df_filtered.height
+        deleted_count = initial_count - final_count
+
+        if deleted_count == 0:
+            return {"message": "Aucune donnée supprimée (IDs non trouvés).", "deleted": 0}
+
+        # 4. Réécriture du fichier Parquet (écrase l'ancien)
+        df_filtered.write_parquet(path)
+
+        return {
+            "message": f"Suppression réussie dans {table}",
+            "deleted_count": deleted_count,
+            "remaining_count": final_count
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la suppression : {str(e)}")

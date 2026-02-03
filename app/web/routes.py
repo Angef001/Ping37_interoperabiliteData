@@ -4,7 +4,7 @@ from fastapi.templating import Jinja2Templates
 import os, json
 import polars as pl
 from pathlib import Path
-from app.core.converters.fhir_to_edsan import process_dir  
+from app.core.converters.fhir_to_edsan import process_dir, EDS_DIR  
 from app.core.converters.fhir_to_edsan import process_bundle
 from app.core.converters.edsan_to_fhir import export_eds_to_fhir
 import tempfile

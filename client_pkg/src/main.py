@@ -471,4 +471,66 @@ def download_last_export(
 if __name__ == "__main__":
     app()
 
+@app.command()
+def eds_delete(
+    table: str = typer.Argument(..., help="Nom de la table (ex: mvt, biol, patient)"),
+    ids: List[str] = typer.Option(..., "--id", help="ID(s) à supprimer (peut être répété)")
+):
+    """
+    Supprime des enregistrements d'une table EDS par ID.
+    Exemple: chu-fhir eds-delete patient --id 123 --id 456
+    """
+    # Confirmation de sécurité
+    confirm = typer.confirm(f"Êtes-vous sûr de vouloir supprimer {len(ids)} ligne(s) dans {table} ?")
+    if not confirm:
+        raise typer.Abort()
 
+    console.print(f"🔄 [bold red]Suppression en cours dans {table}...[/bold red]")
+
+    # L'endpoint attend une liste d'IDs dans le body
+    url = f"{CONVERTER_API_URL}/eds/table/{table}/delete"
+    
+    try:
+        # Envoi de la requête DELETE avec les IDs
+        r = requests.delete(url, json=ids)
+        _raise_if_error(r, f"Suppression EDS {table}")
+        
+        res = r.json()
+        console.print(f"[bold green]✅ {res.get('message')}[/bold green]")
+        console.print(f"Lignes restantes : [cyan]{res.get('remaining_count')}[/cyan]")
+        
+    except Exception as e:
+        console.print(f"[bold red]❌ Erreur lors de la suppression : {e}[/bold red]")
+
+
+@app.command()
+def upload_bundle(path: str = typer.Argument(..., help="Chemin vers le fichier JSON du Bundle")):
+    """
+    Envoie un Bundle FHIR (transaction/batch) au serveur.
+    Exemple: chu-fhir upload-bundle ./mon_bundle.json
+    """
+    file_path = Path(path)
+    if not file_path.exists():
+        console.print(f"[bold red]❌ Fichier introuvable : {path}[/bold red]")
+        raise typer.Exit(code=1)
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            bundle_data = json.load(f)
+        
+        console.print(f"🔄 [bold cyan]Envoi du bundle au serveur FHIR...[/bold cyan]")
+        
+        # Pour un bundle de transaction, on poste à la racine (FHIR_URL)
+        headers = {**FHIR_HEADERS, "Content-Type": "application/fhir+json"}
+        r = requests.post(FHIR_URL, json=bundle_data, headers=headers)
+        
+        if r.status_code in [200, 201]:
+            console.print("[bold green]✅ Bundle traité avec succès ![/bold green]")
+            # Affiche la réponse (contient les nouveaux IDs générés)
+            console.print_json(json.dumps(r.json(), ensure_ascii=False))
+        else:
+            console.print(f"[bold red]❌ Erreur lors de l'envoi (HTTP {r.status_code})[/bold red]")
+            console.print(r.text)
+
+    except Exception as e:
+        console.print(f"[bold red]❌ Erreur de lecture ou d'envoi : {e}[/bold red]")
