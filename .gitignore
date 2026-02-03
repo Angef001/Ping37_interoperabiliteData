@@ -8,7 +8,9 @@ __pycache__/
 .venv/
 venv/
 ENV/
+.env/
 Synthea/
+synthea/
 
 # --- Données (EDS) ---
 # On ne pousse pas les fichiers de données massifs ou sensibles
@@ -18,6 +20,11 @@ data/
 *.json
 *.zip
 *.db
+
+
+# But keep the FHIR ↔ EDS mapping
+!app/core/converters/mapping.json
+
 # Exception : on veut garder le dossier fhir source de Synthea vide ou avec un exemple
 # Mais idéalement, les sorties de Synthea ne doivent pas être sur Git
 output/
@@ -38,4 +45,6 @@ Thumbs.db
 target/
 *.jar
 *.war
+
 *.class
+

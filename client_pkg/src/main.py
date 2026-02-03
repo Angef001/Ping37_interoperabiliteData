@@ -1,3 +1,14 @@
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(PROJECT_ROOT))
+
+
+
 import os
 import json
 import requests
@@ -10,8 +21,20 @@ from rich.console import Console
 from rich.table import Table
 from rich import box
 
+from . import edsan_filter
+from . import edsan_filter_to_fhir
+from . import display_edsan
+
+
+
+
 app = typer.Typer(help="CLI CHU Rouen — Entrepôt FHIR (HAPI) + Conversion EDS")
 console = Console()
+
+app.add_typer(edsan_filter.app)
+app.add_typer(edsan_filter_to_fhir.app)
+app.add_typer(display_edsan.app)
+
 
 # Entrepôt FHIR (HAPI)
 FHIR_URL = os.getenv("FHIR_URL", "http://localhost:8080/fhir")

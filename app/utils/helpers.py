@@ -49,6 +49,55 @@ def clean_id(raw_id: Optional[str]) -> str:
         raw_id,
     )
  
+
+def _normalize_value(value, expected_dtype: str | None):
+    """
+    Normalise une valeur brute issue du JSON FHIR selon le type attendu (_schemas).
+    Objectif : éviter les colonnes Polars à types mixtes.
+    """
+
+    if value is None:
+        return None
+
+    # Listes → valeur atomique (1er élément)
+    if isinstance(value, list):
+        if not value:
+            return None
+        value = value[0]
+
+    # Dictionnaires → JSON string (cas FHIR complexe)
+    if isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False)
+
+    if expected_dtype is None:
+        return value
+
+    try:
+        dtype = expected_dtype.lower()
+
+        if dtype in ("utf8", "string", "str"):
+            return str(value)
+
+        if dtype in ("int64", "int", "integer"):
+            return int(value)
+
+        if dtype in ("float64", "float", "double"):
+            return float(value)
+
+        if dtype in ("bool", "boolean"):
+            return bool(value)
+
+        if dtype in ("date", "datetime"):
+            # on garde la string → conversion Polars plus tard
+            return str(value)
+
+    except Exception:
+        # fallback sécurisé
+        return None
+
+    return value
+
+
  
 def format_fhir_date(date_val: Optional[Union[str, datetime]]) -> Optional[str]:
     """Normalise les dates pour l'affichage ou le stockage.
@@ -339,9 +388,6 @@ def write_last_run_report(result: dict, target_eds_dir: str, filename: str = "la
  
  
 #api helpers    eds to fhir
-FHIR_SERVER_URL = os.getenv("FHIR_SERVER_URL", "http://localhost:8080/fhir")
-FHIR_ACCEPT_HEADERS = {"Accept": "application/fhir+json"}
- 
 def _fetch_bundle_all_pages(url: str, params: dict | None = None, timeout: int = 60) -> dict:
     """
     Récupère un Bundle FHIR (searchset / $everything) en suivant la pagination (link[next]).
@@ -468,3 +514,43 @@ def _coalesce_from_path(df: pl.DataFrame, target: str, src: str) -> pl.DataFrame
         # On supprime la colonne source intermédiaire pour nettoyer
         df = df.drop(src)
     return df
+
+
+
+def parquet_row_count(path: str | Path) -> int:
+    """Retourne le nombre de lignes d'un parquet, 0 si fichier absent."""
+    p = Path(path)
+    if not p.exists():
+        return 0
+    return pl.scan_parquet(str(p)).select(pl.len()).collect().item()
+
+def snapshot_eds_counts(eds_dir: str | Path, tables: list[str]) -> dict:
+    """
+    Prend un snapshot {table: nb_lignes} dans eds_dir.
+    tables = ["pmsi.parquet", "mvt.parquet", ...]
+    """
+    eds_dir = Path(eds_dir)
+    return {t: parquet_row_count(eds_dir / t) for t in tables}
+
+def build_merge_report(before: dict, after: dict, incoming_acc: dict) -> list[dict]:
+    """
+    Construit un merge_report final cohérent :
+    - before_rows: snapshot avant run
+    - after_rows : snapshot après run
+    - incoming_rows: somme des lignes tentées d’être injectées (accumulateur)
+    - added_rows: after - before
+    """
+    tables = sorted(set(before.keys()) | set(after.keys()) | set(incoming_acc.keys()))
+    report = []
+    for t in tables:
+        b = int(before.get(t, 0) or 0)
+        a = int(after.get(t, 0) or 0)
+        inc = int(incoming_acc.get(t, 0) or 0)
+        report.append({
+            "table": t,
+            "before_rows": b,
+            "incoming_rows": inc,
+            "after_rows": a,
+            "added_rows": a - b,
+        })
+    return sorted(report, key=lambda x: x["table"])
