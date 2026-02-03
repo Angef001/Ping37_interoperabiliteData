@@ -1,8 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request, UploadFile, File
 from app.core.converters.edsan_to_fhir import export_eds_to_fhir
 from app.core.models.edsan_models import PmsiModel, PatientModel
-from app.utils.helpers import snapshot_eds_counts, build_merge_report
- 
+from app.utils.helpers import snapshot_eds_counts, build_merge_report, FHIR_SERVER_URL, FHIR_ACCEPT_HEADERS
 from app.core.converters import fhir_to_edsan
 from typing import List
 import os
@@ -26,8 +25,8 @@ import zipfile
 load_dotenv()  # charge les variables du .env
 router = APIRouter()
  
-FHIR_SERVER_URL = os.getenv("FHIR_SERVER_URL", "http://localhost:8080/fhir")
-FHIR_ACCEPT_HEADERS = {"Accept": "application/fhir+json"}
+#FHIR_SERVER_URL = os.getenv("FHIR_SERVER_URL", "http://localhost:8080/fhir")
+#FHIR_ACCEPT_HEADERS = {"Accept": "application/fhir+json"}
 REPORTS_DIR_EXPORT_PATH = Path(os.getenv("REPORTS_DIR_EXPORT", REPORTS_DIR_EXPORT))
 EDS_DIR = Path(os.getenv("EDS_DIR", EDS_DIR))
 #EDS_DIR_CONV = Path(os.getenv("EDS_DIR_conv", EDS_DIR))  # fallback
