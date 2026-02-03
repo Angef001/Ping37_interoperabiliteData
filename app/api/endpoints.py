@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Request, UploadFile, File
 from app.core.converters.edsan_to_fhir import export_eds_to_fhir
 from app.core.models.edsan_models import PmsiModel, PatientModel
 from app.utils.helpers import snapshot_eds_counts, build_merge_report
+#, FHIR_SERVER_URL, FHIR_ACCEPT_HEADERS
 
 from app.core.converters import fhir_to_edsan
 from typing import List
@@ -30,7 +31,7 @@ FHIR_SERVER_URL = os.getenv("FHIR_SERVER_URL", "http://localhost:8080/fhir")
 FHIR_ACCEPT_HEADERS = {"Accept": "application/fhir+json"}
 REPORTS_DIR_EXPORT_PATH = Path(os.getenv("REPORTS_DIR_EXPORT", REPORTS_DIR_EXPORT))
 EDS_DIR = Path(os.getenv("EDS_DIR", EDS_DIR))
-EDS_DIR_CONV = Path(os.getenv("EDS_DIR_conv", EDS_DIR))  # fallback
+#EDS_DIR_CONV = Path(os.getenv("EDS_DIR_conv", EDS_DIR))  # fallback
 
 
 #                --- ENDPOINT : FHIR (ENTREPOT) -> EDS ---
@@ -85,8 +86,8 @@ async def convert_fhir_warehouse_to_edsan(payload: dict | None = None):
     # ✅ tables suivies (EDS conversion)
     tracked_tables = ["biol.parquet", "doceds.parquet", "mvt.parquet", "pharma.parquet", "pmsi.parquet"]
 
-    # ✅ snapshot global AVANT conversion (dans EDS_DIR_CONV)
-    before_global = snapshot_eds_counts(EDS_DIR_CONV, tracked_tables)
+    # ✅ snapshot global AVANT conversion (dans EDS_DIR)
+    before_global = snapshot_eds_counts(EDS_DIR, tracked_tables)
 
     # ✅ accumulateur incoming (candidats traités)
     incoming_acc = {t: 0 for t in tracked_tables}
@@ -97,8 +98,8 @@ async def convert_fhir_warehouse_to_edsan(payload: dict | None = None):
             everything_url = f"{FHIR_SERVER_URL}/Patient/{pid}/$everything"
             bundle = _fetch_bundle_all_pages(everything_url, params={"_count": page_size})
 
-            # ✅ conversion écrite dans EDS_DIR_CONV (data/eds)
-            conv = fhir_to_edsan.process_bundle(bundle, eds_dir=str(EDS_DIR_CONV), write_report=False)
+            # ✅ conversion écrite dans EDS_DIR (data/eds)
+            conv = fhir_to_edsan.process_bundle(bundle, eds_dir=str(EDS_DIR), write_report=False)
 
             # ✅ addition incoming_rows uniquement
             for r in (conv.get("merge") or conv.get("merge_report") or []):
@@ -110,7 +111,7 @@ async def convert_fhir_warehouse_to_edsan(payload: dict | None = None):
                 if t not in incoming_acc:
                     incoming_acc[t] = 0
                     tracked_tables.append(t)
-                    before_global[t] = snapshot_eds_counts(EDS_DIR_CONV, [t]).get(t, 0)
+                    before_global[t] = snapshot_eds_counts(EDS_DIR, [t]).get(t, 0)
 
 
                 incoming_acc[t] += int(r.get("incoming_rows", 0) or 0)
@@ -135,8 +136,8 @@ async def convert_fhir_warehouse_to_edsan(payload: dict | None = None):
 
     ended_at = datetime.now().isoformat()
 
-    # ✅ snapshot global APRÈS conversion (dans EDS_DIR_CONV)
-    after_global = snapshot_eds_counts(EDS_DIR_CONV, tracked_tables)
+    # ✅ snapshot global APRÈS conversion (dans EDS_DIR)
+    after_global = snapshot_eds_counts(EDS_DIR, tracked_tables)
 
     # ✅ merge_report final
     merge_report = []
@@ -193,7 +194,7 @@ async def convert_list_patients_from_warehouse(payload: dict):
     if reset:
         from pathlib import Path
         for t in tables:
-            p = Path(EDS_DIR_CONV) / t
+            p = Path(EDS_DIR) / t
             if p.exists():
                 p.unlink()
 
@@ -203,7 +204,7 @@ async def convert_list_patients_from_warehouse(payload: dict):
     started_at = datetime.now().isoformat()
 
     # ✅ Snapshot AVANT
-    before_counts = snapshot_eds_counts(EDS_DIR_CONV, tables)
+    before_counts = snapshot_eds_counts(EDS_DIR, tables)
 
     per_patient = []
     ok = 0
@@ -219,7 +220,7 @@ async def convert_list_patients_from_warehouse(payload: dict):
 
             conv = fhir_to_edsan.process_bundle(
                 bundle,
-                eds_dir=str(EDS_DIR_CONV),
+                eds_dir=str(EDS_DIR),
                 write_report=False
             )
 
@@ -245,7 +246,7 @@ async def convert_list_patients_from_warehouse(payload: dict):
     ended_at = datetime.now().isoformat()
 
     # ✅ Snapshot APRÈS
-    after_counts = snapshot_eds_counts(EDS_DIR_CONV, tables)
+    after_counts = snapshot_eds_counts(EDS_DIR, tables)
 
     # ✅ merge_report final cohérent
     merge_report = build_merge_report(before_counts, after_counts, incoming_acc)
@@ -284,7 +285,7 @@ async def convert_one_patient_from_warehouse(payload: dict):
     if reset:
         from pathlib import Path
         for t in tables:
-            p = Path(EDS_DIR_CONV) / t
+            p = Path(EDS_DIR) / t
             if p.exists():
                 p.unlink()
 
@@ -293,14 +294,14 @@ async def convert_one_patient_from_warehouse(payload: dict):
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     started_at = datetime.now().isoformat()
 
-    before_counts = snapshot_eds_counts(EDS_DIR_CONV, tables)
+    before_counts = snapshot_eds_counts(EDS_DIR, tables)
     incoming_acc = {t: 0 for t in tables}
 
     try:
         everything_url = f"{FHIR_SERVER_URL}/Patient/{pid}/$everything"
         bundle = _fetch_bundle_all_pages(everything_url, params={"_count": page_size})
 
-        conv = fhir_to_edsan.process_bundle(bundle, eds_dir=str(EDS_DIR_CONV), write_report=False)
+        conv = fhir_to_edsan.process_bundle(bundle, eds_dir=str(EDS_DIR), write_report=False)
 
         for r in (conv.get("merge") or conv.get("merge_report") or []):
             t = r.get("table")
@@ -309,7 +310,7 @@ async def convert_one_patient_from_warehouse(payload: dict):
 
         summary = summarize_bundle(bundle)
 
-        after_counts = snapshot_eds_counts(EDS_DIR_CONV, tables)
+        after_counts = snapshot_eds_counts(EDS_DIR, tables)
         merge_report = build_merge_report(before_counts, after_counts, incoming_acc)
 
         report = {

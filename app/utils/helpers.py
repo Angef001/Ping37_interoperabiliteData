@@ -23,6 +23,10 @@ from collections import Counter
 import polars as pl
  
 load_dotenv()  # charge le .env
+
+#FHIR_SERVER_URL = os.getenv("FHIR_SERVER_URL", "http://localhost:8080/fhir")
+#FHIR_ACCEPT_HEADERS = {"Accept": "application/fhir+json"}
+
 # -----------------------------------------------------------------------------
 # FHIR / generic text helpers
 # -----------------------------------------------------------------------------
