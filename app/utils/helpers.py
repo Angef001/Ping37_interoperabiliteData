@@ -388,9 +388,6 @@ def write_last_run_report(result: dict, target_eds_dir: str, filename: str = "la
  
  
 #api helpers    eds to fhir
-FHIR_SERVER_URL = os.getenv("FHIR_SERVER_URL", "http://localhost:8080/fhir")
-FHIR_ACCEPT_HEADERS = {"Accept": "application/fhir+json"}
- 
 def _fetch_bundle_all_pages(url: str, params: dict | None = None, timeout: int = 60) -> dict:
     """
     Récupère un Bundle FHIR (searchset / $everything) en suivant la pagination (link[next]).
