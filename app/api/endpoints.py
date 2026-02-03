@@ -1,8 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request, UploadFile, File
 from app.core.converters.edsan_to_fhir import export_eds_to_fhir
 from app.core.models.edsan_models import PmsiModel, PatientModel
-from app.utils.helpers import snapshot_eds_counts, build_merge_report,FHIR_ACCEPT_HEADERS,FHIR_SERVER_URL
- 
+from app.utils.helpers import snapshot_eds_counts, build_merge_report, FHIR_SERVER_URL, FHIR_ACCEPT_HEADERS
 from app.core.converters import fhir_to_edsan
 from typing import List
 import os

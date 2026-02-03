@@ -187,6 +187,7 @@ def edsan_filter_to_fhir(
             output_dir=str(Path(fhir_output_dir)),
             bundle_strategy=bundle_strategy,
             print_summary=False,
+            fhir_base_url=fhir_url if push else None,
         )
 
 
