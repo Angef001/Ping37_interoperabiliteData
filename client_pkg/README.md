@@ -18,41 +18,16 @@ Avant d'installer le client, assurez-vous d'avoir les éléments suivants sur vo
 
 ## 🚀 Installation
 
-### 1. Installation via Podman (Recommandé)
-
-Le client est déjà conteneurisé pour éviter les conflits de dépendances sur votre machine hôte.
-
 ```bash
-# Lancement des conteneurs
-podman-compose up --build -d
-
-#Remplir l'entrepôt de données fhir (si ce n'est pas déjà fait)
-podman exec -it ping37_interoperabilitedata_api-converter_1 python3 -m app.core.converters.edsan_to_fhir
- 
-# Entrer dans le conteneur client
-podman exec -it ping37_interoperabilitedata_cli-client_1 bash
-
-# Une fois à l'intérieur, la commande est directement disponible
-chu-fhir --help
-
-```
-
-Note: Taper "exit" pour sortir d'un conteneur 
-
-### 2. Installation locale (Mode Développement)
-
-Si vous souhaitez développer ou tester le client directement sur votre machine :
-
-```bash
-# 1. Créer et activer un environnement virtuel
+# 1. Créer et activer un environnement virtuel (si ce n'est pas déjà fait)
 python3 -m venv .venv
 source .venv/bin/activate
 
 # 2. Installer le package en mode éditable en vous plaçant dans le dossier client_pkg
+cd client_pkg
 pip install -e .
 
 ```
-Cette commande installe automatiquement `typer`, `requests` et `rich`.
 
 **Astuce dépannage** : Si vous installez le client localement et recevez une erreur `ModuleNotFoundError: No module named 'src'`, assurez-vous de définir votre chemin source en tapant:
 `export PYTHONPATH=$PYTHONPATH:.`
@@ -67,13 +42,15 @@ Le client utilise des variables d'environnement pour localiser les services. Vou
 | Variable | Description | Valeur par défaut |
 | --- | --- | --- |
 | `FHIR_URL` | URL de l'entrepôt HAPI FHIR | `http://localhost:8080/fhir` |
-| `CONVERTER_API_URL` | URL de l'API de conversion | `http://localhost:8000/api/v1` |
+| `CONVERTER_API_URL` | URL de l'API de conversion | `http://localhost:8000` |
 
 ---
 
 ## 🛠️ Guide d'utilisation
 
 Le client `chu-fhir` est divisé en plusieurs groupes de commandes.
+
+Taper `chu-fhir --help` pour avoir la liste des commandes et comment les utiliser
 
 ### 🔍 1. Exploration FHIR
 
@@ -128,7 +105,7 @@ chu-fhir warehouse-convert-patient --id <FHIR_ID>
 * **Export ZIP**
 Convertit les données EDSan en bundles FHIR et génère un fichier ZIP :
 ```bash
-chu-fhir edsan-to-fhir-zip --output /app/chemin/vers/export.zip
+chu-fhir edsan-to-fhir-zip --output chemin/vers/export.zip
 ```
 
 * **Push vers l'entrepôt FHIR**
@@ -136,7 +113,11 @@ Convertit et envoie directement les bundles vers le serveur FHIR :
 ```bash
 chu-fhir edsan-to-fhir-push
 ```
-
+* **Push vers l'entrepôt FHIR d'un fichier fhir non contenu dans l'edsan**
+Envoie directement le bundle vers le serveur FHIR :
+```bash
+ chu-fhir upload-bundle chemin_vers/le/fichier.json
+```
 
 ### 📊 4. Gestion de l'EDS
 
@@ -154,7 +135,11 @@ chu-fhir eds-tables
 chu-fhir eds-preview <Nom_Table> --limit 10
 
 ```
+* **Supprimer des données d'une table par id** :
+```bash
+chu-fhir eds-delete patient --id 123 --id 456
 
+```
 
 * **Statistiques de stockage** :
 ```bash
@@ -177,10 +162,10 @@ chu-fhir last-run
 
 * **Télécharger un rapport d'import spécifique** :
 ```bash
-chu-fhir download-run <nom_du_rapport> --out /app/ma_destination/
+chu-fhir download-run <nom_du_rapport> --out ma_destination/log_import.json
 
 ```
-* **Afficher l'historique des logs d'import** 
+* **Afficher l'historique des rapports d'import** 
 ```bash
 chu-fhir runs
 
@@ -206,7 +191,7 @@ chu-fhir export-runs
 Récupère un fichier de rapport archivé sur votre machine locale :
 
 ```bash
-chu-fhir download-export-run [NOM_DU_FICHIER] --out /app/download/bilan.json
+chu-fhir download-export-run [NOM_DU_FICHIER] --out download/bilan.json
 
 ```
 
