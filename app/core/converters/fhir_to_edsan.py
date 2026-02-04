@@ -5,7 +5,7 @@ from pathlib import Path
 
 from app.core.config.merge_keys import MERGE_KEYS
 from app.core.converters.eds_merge import merge_run_into_eds
-from app.utils.helpers import write_last_run_report
+
 
 # =============================================================================
 # (ex-build_eds_with_fhir.py) CONFIGURATION
@@ -435,7 +435,7 @@ def process_dir(
         result["merged_into"] = target_eds_dir
 
         # 3) sauvegarde report
-        _write_last_run(result, target_eds_dir)
+        #_write_last_run(result, target_eds_dir)
 
         return result
 
@@ -483,19 +483,19 @@ def process_bundle(
             result["merged_into"] = target_eds_dir
 
             # 4) sauvegarde report
-            if write_report:
-                _write_last_run(result, target_eds_dir)
+            # if write_report:
+            #     _write_last_run(result, target_eds_dir)
 
             return result
 
 
-def _write_last_run(result: dict, target_dir: str) -> None:
-    """Compat: wrapper historique.
+# def _write_last_run(result: dict, target_dir: str) -> None:
+#     """Compat: wrapper historique.
 
-    L'écriture du report a été centralisée dans app.utils.helpers.write_last_run_report.
-    On garde ce wrapper pour ne pas casser d'éventuels imports.
-    """
-    write_last_run_report(result, target_dir)
+#     L'écriture du report a été centralisée dans app.utils.helpers.write_last_run_report.
+#     On garde ce wrapper pour ne pas casser d'éventuels imports.
+#     """
+#     write_last_run_report(result, target_dir)
 
 
 if __name__ == "__main__":

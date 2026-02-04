@@ -82,6 +82,55 @@ chu-fhir get-resource Patient 123
 
 Pilotez la conversion de l'entrepôt FHIR vers le format EDS (Parquet).
 
+* **Importer des données FHIR vers l’EDS à partir d’une requête FHIR complète** 
+```bash
+chu-fhir import-url --url "<URL_DE_REQUETE_FHIR>"
+
+Ex: chu-fhir import-url --url "http://localhost:8080/fhir/Encounter?_count=100"
+
+```
+
+* **Importer des données FHIR vers un dossier EDS spécifique**  
+
+```bash
+chu-fhir import-url --url "<URL_DE_REQUETE_FHIR>" --eds-dir <CHEMIN_DOSSIER_EDS>
+
+
+Ex: chu-fhir import-url  --url "http://localhost:8080/fhir/Encounter?_count=100" --eds-dir data/eds_custom
+
+```
+
+
+* **Importer des données FHIR et afficher les statistiques complètes du run** 
+
+```bash
+chu-fhir import-url --url "<URL_DE_REQUETE_FHIR>" --stats
+
+
+Ex: chu-fhir import-url --url "http://localhost:8080/fhir/Encounter?_count=100" --stats
+```
+
+* **Combiner tous les paramètres dans une seule commande**
+
+```bash
+chu-fhir import-url --url "<URL_DE_REQUETE_FHIR>" --eds-dir <CHEMIN_DOSSIER_EDS>  --stats
+
+
+Exemple :
+
+chu-fhir import-url \
+  --url "http://localhost:8080/fhir/Encounter?_count=100" \
+  --eds-dir data/eds_custom \
+  --stats
+```
+* **NB**
+
+Le paramètre --eds-dir permet de choisir dynamiquement le dossier EDS dans lequel les fichiers parquet sont générés.
+
+Les rapports d’exécution (last_run.json et l’historique des runs) sont toujours stockés dans le dossier de reports par défaut du projet, indépendamment du dossier EDS choisi.
+
+Cela garantit une centralisation cohérente des rapports, même lorsqu’on travaille avec plusieurs EDS en parallèle.
+
 * **Convertir tout l'entrepôt** (limité à 50 patients par défaut) :
 ```bash
 chu-fhir warehouse-convert --patient-limit 100

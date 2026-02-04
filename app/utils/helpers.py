@@ -359,41 +359,115 @@ def _coalesce_from(df: pl.DataFrame, target: str, src: str) -> pl.DataFrame:
     return df
  
  
-def write_last_run_report(result: dict, target_eds_dir: str, filename: str = "last_run.json") -> None:
+# def write_last_run_report(result: dict, target_eds_dir: str, filename: str = "last_run.json") -> None:
+#     """
+#     - Ecrit le dernier run dans eds/last_run.json
+#     - Archive chaque run dans eds/runs/last_run_<timestamp>.json (historique)
+#     """
+#     try:
+#         from pathlib import Path
+#         from datetime import datetime
+#         import json
+ 
+#         eds_path = Path(target_eds_dir)
+#         eds_path.mkdir(parents=True, exist_ok=True)
+ 
+#         # 1) Dernier run (toujours le plus récent)
+#         latest = eds_path / filename
+#         with open(latest, "w", encoding="utf-8") as f:
+#             json.dump(result, f, ensure_ascii=False, indent=2)
+ 
+#         # 2) Historique (jamais écrasé)
+#         runs_dir = eds_path / "runs"
+#         runs_dir.mkdir(parents=True, exist_ok=True)
+ 
+#         run_id = result.get("run_id") if isinstance(result, dict) else None
+#         ts = run_id or datetime.now().strftime("%Y%m%d_%H%M%S")
+#         archived = runs_dir / f"last_run_{ts}.json"
+ 
+#         with open(archived, "w", encoding="utf-8") as f:
+#             json.dump(result, f, ensure_ascii=False, indent=2)
+ 
+#     except Exception:
+#         # on ne casse pas la conversion si l’écriture échoue
+#         pass
+ 
+# def write_last_run_report(result: dict, reports_dir: str) -> str:
+#     """
+#     Écrit le dernier report d'import/export.
+#     Convention projet :
+#     - reports_dir/last_run.json        → dernier run
+#     - reports_dir/runs/<run_id>.json   → historique
+#     """
+
+#     reports_dir = Path(reports_dir)
+#     reports_dir.mkdir(parents=True, exist_ok=True)
+
+#     runs_dir = reports_dir / "runs"
+#     runs_dir.mkdir(parents=True, exist_ok=True)
+
+#     # run_id obligatoire
+#     run_id = result.get("run_id")
+#     if not run_id:
+#         run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+#         result["run_id"] = run_id
+
+#     # enrichissement minimal non intrusif
+#     result.setdefault("schema_version", 1)
+#     result.setdefault("generated_at", datetime.now().isoformat())
+
+#     last_run_path = reports_dir / "last_run.json"
+#     archived_path = runs_dir / f"{run_id}.json"
+
+#     with open(last_run_path, "w", encoding="utf-8") as f:
+#         json.dump(result, f, ensure_ascii=False, indent=2)
+
+#     with open(archived_path, "w", encoding="utf-8") as f:
+#         json.dump(result, f, ensure_ascii=False, indent=2)
+
+#     return run_id
+
+ 
+def write_last_run_report(result: dict, reports_dir: str) -> str:
     """
-    - Ecrit le dernier run dans eds/last_run.json
-    - Archive chaque run dans eds/runs/last_run_<timestamp>.json (historique)
+    Ecrit le dernier report (import / export).
+
+    Convention projet :
+    - reports_dir/last_run.json        -> dernier run
+    - reports_dir/runs/<run_id>.json   -> historique
     """
-    try:
-        from pathlib import Path
-        from datetime import datetime
-        import json
- 
-        eds_path = Path(target_eds_dir)
-        eds_path.mkdir(parents=True, exist_ok=True)
- 
-        # 1) Dernier run (toujours le plus récent)
-        latest = eds_path / filename
-        with open(latest, "w", encoding="utf-8") as f:
-            json.dump(result, f, ensure_ascii=False, indent=2)
- 
-        # 2) Historique (jamais écrasé)
-        runs_dir = eds_path / "runs"
-        runs_dir.mkdir(parents=True, exist_ok=True)
- 
-        run_id = result.get("run_id") if isinstance(result, dict) else None
-        ts = run_id or datetime.now().strftime("%Y%m%d_%H%M%S")
-        archived = runs_dir / f"last_run_{ts}.json"
- 
-        with open(archived, "w", encoding="utf-8") as f:
-            json.dump(result, f, ensure_ascii=False, indent=2)
- 
-    except Exception:
-        # on ne casse pas la conversion si l’écriture échoue
-        pass
- 
- 
- 
+
+    from pathlib import Path
+    from datetime import datetime
+    import json
+
+    reports_dir = Path(reports_dir)
+    reports_dir.mkdir(parents=True, exist_ok=True)
+
+    runs_dir = reports_dir / "runs"
+    runs_dir.mkdir(parents=True, exist_ok=True)
+
+    # run_id obligatoire
+    run_id = result.get("run_id")
+    if not run_id:
+        run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+        result["run_id"] = run_id
+
+    # métadonnées minimales (non intrusives)
+    result.setdefault("schema_version", 1)
+    result.setdefault("generated_at", datetime.now().isoformat())
+
+    last_run_path = reports_dir / "last_run.json"
+    archived_path = runs_dir / f"{run_id}.json"
+
+    with open(last_run_path, "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False, indent=2)
+
+    with open(archived_path, "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False, indent=2)
+
+    return run_id
+
  
 #api helpers    eds to fhir
 def _fetch_bundle_all_pages(url: str, params: dict | None = None, timeout: int = 60) -> dict:
