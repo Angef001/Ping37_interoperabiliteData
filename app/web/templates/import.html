@@ -1,23 +1,79 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Import FHIR</h1>
-<p class="muted">Importer un Bundle FHIR (JSON). L’API lance la conversion et met à jour l’EDS.</p>
+<p class="description">
+  Importer des données FHIR vers l’EDS.
+  <br/>
+  <span class="muted">Mode recommandé : URL de requête FHIR (entrepôt). Mode legacy : upload d’un Bundle JSON.</span>
+</p>
 
+<!-- ===================== Mode 1 : URL de requête (CHU) ===================== -->
 <div class="card">
-  <div class="muted" style="margin-bottom:10px;"><b>Bundle JSON</b></div>
+  <div class="field-spaced">
+    <label class="label">Import via URL de requête (entrepôt FHIR)</label>
+    <p class="description">
+      Saisis une URL de requête FHIR (ex: Patient?...) et une destination EDS.
+      <br/>
+      <span class="muted">Si tu fournis une URL, elle sera utilisée en priorité.</span>
+    </p>
 
-  <form id="uploadForm"
-        hx-post="/ui/import/run"
-        hx-target="#result"
-        hx-swap="innerHTML"
-        enctype="multipart/form-data">
+    <form
+      hx-post="/ui/import/run"
+      hx-target="#result"
+      hx-swap="innerHTML"
+    >
+      <div class="field-spaced">
+        <label class="label">URL de requête FHIR</label>
+        <input
+          class="input"
+          type="text"
+          name="query_url"
+          placeholder="Ex: http://localhost:8080/fhir/Patient?_count=50"
+          required
+        />
+      </div>
 
-    <input class="file" type="file" name="file" accept=".json,application/json" required />
-    <div style="margin-top:12px;" class="row">
+      <div class="field-spaced">
+        <label class="label">Dossier EDS destination (optionnel)</label>
+        <input
+          class="input"
+          type="text"
+          name="eds_dir"
+          placeholder="Ex: data/eds"
+        />
+        <p class="muted" style="margin:8px 0 0;">
+          Si vide, la configuration par défaut du serveur est utilisée.
+        </p>
+      </div>
+
       <button class="btn" type="submit">Importer & convertir</button>
-      <a class="btn ghost" href="/docs" target="_blank">Voir Swagger</a>
-    </div>
-  </form>
+      <a class="btn ghost" href="/ui/stats" style="margin-left:10px;">Voir stats</a>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== Mode 2 : Upload bundle (Legacy) ===================== -->
+<div class="card">
+  <div class="field-spaced">
+    <label class="label">Import legacy : Bundle JSON</label>
+    <p class="description">
+      Dépose un Bundle FHIR JSON pour lancer l’import.
+      <br/>
+      <span class="muted">Ce mode sera conservé pour compatibilité, mais l’URL est la cible commanditaire.</span>
+    </p>
+
+    <form
+      hx-post="/ui/import/run"
+      hx-target="#result"
+      hx-swap="innerHTML"
+      enctype="multipart/form-data"
+    >
+      <input class="file" type="file" name="file" accept=".json,application/json" />
+      <div style="margin-top:12px;">
+        <button class="btn ghost" type="submit">Importer (legacy)</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <div id="result"></div>

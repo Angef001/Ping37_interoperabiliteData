@@ -21,6 +21,10 @@ import os
 from collections import Counter
 
 import polars as pl
+
+# app/utils/helpers.py
+
+FHIR_ACCEPT_HEADERS = {"Accept": "application/fhir+json"}
  
 load_dotenv()  # charge le .env
 # -----------------------------------------------------------------------------
