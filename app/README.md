@@ -29,9 +29,6 @@ podman ps
 # 3. Consulter les logs en temps réel
 podman logs -f api-converter
 
-# 4. Remplir l'entrepôt fhir 
-podman exec -it ping37_interoperabilitedata_api-converter_1 python3 -m app.core.converters.edsan_to_fhir
-
 ```
 
 *L'API est accessible par défaut sur `http://localhost:8000`.*
@@ -67,20 +64,7 @@ pip install -r requirements.txt
 
 ```
 
-### 4. Chargement initial de l'entrepôt FHIR
-Avant de lancer l'API, vous devez peupler votre serveur FHIR (HAPI) avec les données EDS initiales au format Parquet. Assurez-vous que votre serveur FHIR est accessible (par défaut sur le port 8080).
-
-Exécutez la commande de conversion depuis la racine du projet :
-
-```bash
-python3 -m app.core.converters.edsan_to_fhir
-
-```
-
-Cette commande lit les fichiers du dossier eds/, les transforme en ressources FHIR et les injecte dans l'entrepôt via des requêtes HTTP.
-
-
-### 5. Lancement de l'API de conversion
+### 4. Lancement de l'API de conversion
 Une fois les données chargées, vous pouvez démarrer le serveur FastAPI en utilisant Uvicorn :
 
 ```bash
@@ -96,25 +80,34 @@ Accès : L'interface Swagger sera disponible sur http://localhost:8000/docs
 
 ### 🔄 Conversion & Import (FHIR → EDS)
 
+* **`POST /api/v1/convert/fhir-query-to-edsan`** : Importe des données en exécutant une requête FHIR spécifique (URL fournie dans le payload). Génère un rapport de run standard.
 * **`POST /api/v1/convert/fhir-warehouse-to-edsan`** : Déclenche l'ETL complet depuis l'entrepôt HAPI FHIR vers les fichiers Parquet. Supporte la pagination et une limite de patients via le payload.
-* **`POST /api/v1/convert/fhir-warehouse-patient-to-edsan`** : Convertit un patient spécifique de l'entrepôt via son `patient_id`.
+* **`POST /api/v1/convert/fhir-warehouse-patients-to-edsan`** : Convertit une liste spécifique d'identifiants patients (`patient_ids`) depuis l'entrepôt.
+* **`POST /api/v1/convert/fhir-warehouse-patient-to-edsan`** : Convertit un patient unique de l'entrepôt via son `patient_id`.
 
 ### 📤 Export & Envoi (EDS → FHIR)
 
-* **`POST /api/v1/export/edsan-to-fhir-zip`** : Convertit l'EDS local en bundles FHIR et génère une archive ZIP.
-* **`GET /api/v1/export/eds-zip`** : Exporte les modules EDSaN (mvt, biol, pharma, doceds, pmsi) en un fichier ZIP de parquets.
+* **`POST /api/v1/export/edsan-to-fhir-warehouse`** : Convertit l'EDS local en bundles FHIR et les pousse directement vers le serveur FHIR configuré.
+* **`POST /api/v1/export/edsan-to-fhir-zip`** : Convertit l'EDS local en bundles FHIR et génère une archive ZIP téléchargeable.
+* **`GET /api/v1/export/eds-zip`** : Exporte les modules EDSaN bruts (mvt, biol, pharma, doceds, pmsi) en un fichier ZIP de parquets.
 
 ### 📊 Consultation & Statistiques
 
 * **`GET /api/v1/eds/tables`** : Liste les fichiers `.parquet` disponibles dans le stockage EDS.
 * **`GET /api/v1/eds/table/{name}`** : Affiche un aperçu (lignes et colonnes) d'une table spécifique.
-* **`GET /api/v1/stats`** : Statistiques sur le volume de données par table (nombre de lignes/colonnes).
+* **`GET /api/v1/stats`** : Statistiques sur le volume de données par table. Accepte désormais un paramètre optionnel `eds_dir` pour cibler un dossier spécifique.
 
-### 📝 Rapports de Run
+### 📝 Rapports de Run (Imports)
 
-* **`GET /api/v1/report/last-run`** : Récupère le rapport détaillé de la dernière conversion effectuée.
-* **`GET /api/v1/report/runs`** : Liste l'historique de tous les rapports archivés.
+* **`GET /api/v1/report/last-run`** : Récupère le rapport détaillé de la dernière conversion (Import FHIR → EDS) effectuée.
+* **`GET /api/v1/report/runs`** : Liste l'historique de tous les rapports d'import archivés.
 * **`GET /api/v1/report/run/{name}`** : Télécharge un fichier de rapport d'archive spécifique.
+
+### 📝 Rapports d'Export (EDS → FHIR)
+
+* **`GET /api/v1/report/last-export`** : Récupère le dernier rapport d'exportation généré.
+* **`GET /api/v1/report/export-runs`** : Liste l'historique des exports archivés.
+* **`GET /api/v1/report/export-run/{name}`** : Télécharge un rapport d'export spécifique.
 
 ### 🖥️ Utilitaires
 

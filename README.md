@@ -4,7 +4,7 @@ Ce projet implémente une solution complète de transformation et d'échange de 
 
 ## 🏗️ Architecture et Interactions
 
-Le projet est divisé en trois composants majeurs qui communiquent au sein d'un réseau conteneurisé via **Podman**:
+Le projet est divisé en trois composants majeurs dont deux (serveur fhir et serveur api) qui communiquent au sein d'un réseau conteneurisé via **Podman**:
 
 1. **L'Entrepôt FHIR (Serveur HAPI)** : Stocke les données cliniques au format standard. Il sert de source pour l'EDS et de destination pour les exports.
 2. **L'API de Conversion (Transformer)** : Le "cerveau" du projet. Elle contient la logique métier (mapping, nettoyage, fusion de données) pour transformer le FHIR en Parquet et inversement.

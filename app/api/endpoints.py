@@ -7,7 +7,6 @@ from typing import List
 from pathlib import Path
 from datetime import datetime
 from contextlib import contextmanager
-#from app.utils.context import override_module_attrs
 
 
 # Standard library
@@ -20,7 +19,6 @@ from zipfile import ZipFile, ZIP_DEFLATED
 
 # Third-party
 import polars as pl
-import requests
 from dotenv import load_dotenv
 
 # Converters
@@ -31,9 +29,6 @@ from app.core.converters.fhir_to_edsan import (
     REPORTS_DIR,
     REPORTS_DIR_EXPORT,
 )
-
-# Models
-from app.core.models.edsan_models import PmsiModel, PatientModel
 
 # Helpers
 from app.utils.helpers import (
@@ -58,7 +53,7 @@ FHIR_SERVER_URL = os.getenv("FHIR_SERVER_URL", "http://localhost:8080/fhir")
 FHIR_ACCEPT_HEADERS = {"Accept": "application/fhir+json"}
 REPORTS_DIR_EXPORT_PATH = Path(os.getenv("REPORTS_DIR_EXPORT", REPORTS_DIR_EXPORT))
 EDS_DIR = Path(os.getenv("EDS_DIR", EDS_DIR))
-EDS_DIR_CONV = Path(os.getenv("EDS_DIR_conv", EDS_DIR))  # fallback
+EDS_DIR_CONV = Path(os.getenv("EDS_DIR_conv", EDS_DIR))  
 
  
 
@@ -129,43 +124,38 @@ async def convert_fhir_query_to_edsan(payload: dict):
     Import principal demandé par les commanditaires :
     - payload["query_url"] : URL complète de requête FHIR (obligatoire)
     - eds_dir (optionnel)
-    - reports_dir (optionnel)
-    - fhir_server_url (optionnel)
-    - page_size (optionnel)
 
     Génère un last_run.json avec merge_report (batch global réel).
     """
+
     query_url = payload.get("query_url") or payload.get("fhir_query_url")
     if not query_url or not str(query_url).strip():
-        raise HTTPException(status_code=400, detail="query_url requis (URL de requête FHIR).")
+        raise HTTPException(
+            status_code=400,
+            detail="query_url requis (URL de requête FHIR)."
+        )
 
-    # paramètres optionnels
+    # paramètres optionnels conservés
     eds_dir = Path(_pick(payload, "eds_dir", EDS_DIR))
-    reports_dir = Path(_pick(payload, "reports_dir", REPORTS_DIR))
-    fhir_server_url = _pick(payload, "fhir_server_url", FHIR_SERVER_URL)
-    page_size = int(payload.get("page_size", 100))
+    reports_dir = Path(REPORTS_DIR)
 
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     started_at = datetime.now().isoformat()
 
     try:
         # ------------------------------------------------------------------
-        # 1) Snapshot GLOBAL AVANT import (toutes les tables déjà présentes)
+        # 1) Snapshot GLOBAL AVANT import
         # ------------------------------------------------------------------
         existing_tables = _list_existing_tables(eds_dir)
         before_counts = snapshot_eds_counts(eds_dir, existing_tables)
 
-        # accumulateur incoming global
         incoming_acc = {t: 0 for t in existing_tables}
 
         # ------------------------------------------------------------------
         # 2) Récupération des données FHIR
+        # ⚠️ On respecte STRICTEMENT la query fournie
         # ------------------------------------------------------------------
-        params = {}
-        if "_count=" not in str(query_url):
-            params["_count"] = page_size
-
-        bundle = _fetch_bundle_all_pages(str(query_url).strip(), params=params)
+        bundle = _fetch_bundle_all_pages(str(query_url).strip())
 
         # ------------------------------------------------------------------
         # 3) Conversion FHIR -> EDS
@@ -175,10 +165,13 @@ async def convert_fhir_query_to_edsan(payload: dict):
             EDS_DIR=str(eds_dir),
             REPORTS_DIR=str(reports_dir),
         ):
-            conv = fhir_to_edsan.process_bundle(bundle, write_report=False)
+            conv = fhir_to_edsan.process_bundle(
+                bundle,
+                write_report=False
+            )
 
         # ------------------------------------------------------------------
-        # 4) Accumulation des incoming_rows par table
+        # 4) Accumulation des incoming_rows
         # ------------------------------------------------------------------
         for r in (conv.get("merge") or conv.get("merge_report") or []):
             table = r.get("table")
@@ -187,18 +180,25 @@ async def convert_fhir_query_to_edsan(payload: dict):
 
             if table not in incoming_acc:
                 incoming_acc[table] = 0
-                before_counts[table] = snapshot_eds_counts(eds_dir, [table]).get(table, 0)
+                before_counts[table] = snapshot_eds_counts(
+                    eds_dir,
+                    [table]
+                ).get(table, 0)
 
-            incoming_acc[table] += int(r.get("incoming_rows", 0) or 0)
+            incoming_acc[table] += int(
+                r.get("incoming_rows", 0) or 0
+            )
 
         # ------------------------------------------------------------------
         # 5) Snapshot GLOBAL APRÈS import
         # ------------------------------------------------------------------
-        all_tables = sorted(set(before_counts.keys()) | set(incoming_acc.keys()))
+        all_tables = sorted(
+            set(before_counts.keys()) | set(incoming_acc.keys())
+        )
         after_counts = snapshot_eds_counts(eds_dir, all_tables)
 
         # ------------------------------------------------------------------
-        # 6) Merge report FINAL (batch global réel)
+        # 6) Merge report FINAL
         # ------------------------------------------------------------------
         merge_report = build_merge_report(
             before=before_counts,
@@ -214,9 +214,7 @@ async def convert_fhir_query_to_edsan(payload: dict):
             "mode": "query_url",
 
             "source": {
-                "warehouse_url": fhir_server_url,
                 "query_url": str(query_url).strip(),
-                "page_size": page_size,
             },
 
             "started_at": started_at,
@@ -237,7 +235,10 @@ async def convert_fhir_query_to_edsan(payload: dict):
 
         write_last_run_report(report, reports_dir)
 
-        return {"status": "success", "run_id": run_id}
+        return {
+            "status": "success",
+            "run_id": run_id
+        }
 
     except Exception as e:
         error_report = {
@@ -252,8 +253,13 @@ async def convert_fhir_query_to_edsan(payload: dict):
                 "reports_dir": str(reports_dir),
             },
         }
+
         write_last_run_report(error_report, reports_dir)
-        raise HTTPException(status_code=400, detail=f"Erreur import via query_url: {str(e)}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Erreur import via query_url: {str(e)}"
+        )
+
 
 
 @router.post("/convert/fhir-warehouse-to-edsan", tags=["Conversion"])
