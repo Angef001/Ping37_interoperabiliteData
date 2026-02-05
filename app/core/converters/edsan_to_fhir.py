@@ -7,8 +7,7 @@ from pathlib import Path
 from typing import Any
 import requests
 import pandas as pd
-from zipfile import ZipFile, ZIP_DEFLATED
-from app.utils.helpers import clean_id, format_fhir_date, write_last_run_report
+from app.utils.helpers import clean_id, format_fhir_date
 from datetime import datetime
 import os
 import logging
