@@ -7,7 +7,6 @@ from typing import List
 from pathlib import Path
 from datetime import datetime
 from contextlib import contextmanager
-#from app.utils.context import override_module_attrs
 
 
 # Standard library
@@ -20,7 +19,6 @@ from zipfile import ZipFile, ZIP_DEFLATED
 
 # Third-party
 import polars as pl
-import requests
 from dotenv import load_dotenv
 
 # Converters
@@ -31,9 +29,6 @@ from app.core.converters.fhir_to_edsan import (
     REPORTS_DIR,
     REPORTS_DIR_EXPORT,
 )
-
-# Models
-from app.core.models.edsan_models import PmsiModel, PatientModel
 
 # Helpers
 from app.utils.helpers import (
@@ -58,7 +53,7 @@ FHIR_SERVER_URL = os.getenv("FHIR_SERVER_URL", "http://localhost:8080/fhir")
 FHIR_ACCEPT_HEADERS = {"Accept": "application/fhir+json"}
 REPORTS_DIR_EXPORT_PATH = Path(os.getenv("REPORTS_DIR_EXPORT", REPORTS_DIR_EXPORT))
 EDS_DIR = Path(os.getenv("EDS_DIR", EDS_DIR))
-EDS_DIR_CONV = Path(os.getenv("EDS_DIR_conv", EDS_DIR))  # fallback
+EDS_DIR_CONV = Path(os.getenv("EDS_DIR_conv", EDS_DIR))  
 
  
 
@@ -122,9 +117,7 @@ def _override_module_attrs(module, **overrides):
             setattr(module, k, old)
 
 
-
-
-
+#                --- ENDPOINTS : FHIR (ENTREPOT) -> EDS ---
 @router.post("/convert/fhir-query-to-edsan", tags=["Conversion"])
 async def convert_fhir_query_to_edsan(payload: dict):
     """

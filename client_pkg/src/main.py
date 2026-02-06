@@ -247,7 +247,7 @@ from rich import box
 from . import edsan_filter
 from . import edsan_filter_to_fhir
 from . import display_edsan
-from .import_url import import_url as import_url_cmd  # >>> AJOUT IMPORT-URL
+from .import_url import import_url as import_url_cmd  
  
  
 app = typer.Typer(help="CLI CHU Rouen — Entrepôt FHIR (HAPI) + Conversion EDS")
@@ -256,7 +256,7 @@ console = Console()
 app.add_typer(edsan_filter.app)
 app.add_typer(edsan_filter_to_fhir.app)
 app.add_typer(display_edsan.app)
-app.command("import-url")(import_url_cmd)  # >>> AJOUT IMPORT-URL
+app.command("import-url")(import_url_cmd) 
  
  
 # Entrepôt FHIR (HAPI)

@@ -6,15 +6,6 @@ from pathlib import Path
 from app.core.config.merge_keys import MERGE_KEYS
 from app.core.converters.eds_merge import merge_run_into_eds
 
-
-# =============================================================================
-# (ex-build_eds_with_fhir.py) CONFIGURATION
-# =============================================================================
-# NOTE:
-# - build_eds_with_fhir.py is intended to be deleted.
-# - The ETL function `build_eds()` and its constants are now hosted here.
-# - Other modules should import from `app.core.converters.fhir_to_edsan` instead.
-
 import glob
 import polars as pl
 
@@ -487,15 +478,6 @@ def process_bundle(
             #     _write_last_run(result, target_eds_dir)
 
             return result
-
-
-# def _write_last_run(result: dict, target_dir: str) -> None:
-#     """Compat: wrapper historique.
-
-#     L'écriture du report a été centralisée dans app.utils.helpers.write_last_run_report.
-#     On garde ce wrapper pour ne pas casser d'éventuels imports.
-#     """
-#     write_last_run_report(result, target_dir)
 
 
 if __name__ == "__main__":
